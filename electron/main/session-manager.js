@@ -22,9 +22,10 @@ const sessionState = {
     popupShown: false
   },
 
-  // Session-scoped whitelist (URLs / domains the user clicked "wrong guess" on)
+  // Session-scoped whitelist (URLs / domains / apps the user clicked "wrong guess" on)
   whitelistedUrls: new Set(),
   whitelistedDomains: new Set(),
+  whitelistedApps: new Set(),
 
   // Snooze tracking
   snoozesUsed: 0,
@@ -43,6 +44,7 @@ function startSession({ sessionId, topic, workType, durationMin }) {
   sessionState.plannedEndTime = Date.now() + durationMin * 60 * 1000;
   sessionState.whitelistedUrls = new Set();
   sessionState.whitelistedDomains = new Set();
+  sessionState.whitelistedApps = new Set();
   sessionState.snoozesUsed = 0;
   cancelSnooze();
   resetDrift();
@@ -100,15 +102,17 @@ function cancelSnooze() {
   sessionState.snoozeEndTime = null;
 }
 
-function addWhitelist({ url, domain }) {
+function addWhitelist({ url, domain, appName }) {
   if (url) sessionState.whitelistedUrls.add(url);
   if (domain) sessionState.whitelistedDomains.add(domain);
+  if (appName) sessionState.whitelistedApps.add(appName);
 }
 
-function isWhitelisted({ url, domain }) {
+function isWhitelisted({ url, domain, appName }) {
   return (
     (url && sessionState.whitelistedUrls.has(url)) ||
-    (domain && sessionState.whitelistedDomains.has(domain))
+    (domain && sessionState.whitelistedDomains.has(domain)) ||
+    (appName && sessionState.whitelistedApps.has(appName))
   );
 }
 

@@ -6,6 +6,10 @@ let ws = null;
 let reconnectTimer = null;
 
 function connect() {
+  // Avoid stacking duplicate sockets when connect() is triggered repeatedly.
+  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+    return;
+  }
   try {
     ws = new WebSocket(WS_URL);
   } catch (err) {
@@ -88,6 +92,18 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!(changeInfo.url || changeInfo.title)) return;
   if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return;
   send({ event: 'tab_update', url: tab.url, title: tab.title, tabId: tab.id });
+});
+
+// Re-report the active tab when the user switches back into the browser.
+// onActivated/onUpdated don't fire if they return to an already-open tab.
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) return; // focus left the browser
+  chrome.tabs.query({ active: true, windowId }, (tabs) => {
+    const tab = tabs && tabs[0];
+    if (chrome.runtime.lastError || !tab || !tab.url) return;
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return;
+    send({ event: 'tab_switch', url: tab.url, title: tab.title, tabId: tab.id });
+  });
 });
 
 // Use chrome.alarms instead of setInterval — alarms wake suspended MV3 service workers,

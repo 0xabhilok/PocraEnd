@@ -57,12 +57,10 @@ async function classifyDistraction(context) {
 
   // 1. Try local model
   let localResult = null;
-  let localError = null;
   try {
     const raw = await callOllama(prompt, { json: true });
     localResult = normalizeClassification(JSON.parse(raw));
   } catch (err) {
-    localError = err;
     console.error('[llm-router] Local model failed:', err.message);
   }
 
@@ -83,13 +81,12 @@ async function classifyDistraction(context) {
     }
   }
 
-  // 3. Fall back to whatever local gave us, or a conservative default
+  // 3. Fall back to whatever local gave us.
   if (localResult) return { ...localResult, source: 'local' };
-  if (localError) {
-    // Local failed and no Gemini — assume distraction conservatively
-    return { verdict: 'DISTRACTION', confidence: 0.5, reason: 'classifier unavailable', source: 'fallback' };
-  }
-  return { verdict: 'DISTRACTION', confidence: 0.5, reason: 'unknown', source: 'fallback' };
+
+  // No classifier available — do NOT intervene. Flagging everything as a
+  // distraction when Ollama is down would bury the user in popups.
+  return { verdict: 'RELEVANT', confidence: 0, reason: 'classifier unavailable', source: 'fallback' };
 }
 
 // --- Motivation message ---

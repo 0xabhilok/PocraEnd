@@ -16,6 +16,9 @@ export default function Dashboard({ navigate }) {
     window.electronAPI.getDashboardData().then(setData);
     window.electronAPI.getExtensionStatus().then((s) => setExtConnected(s.connected));
     window.electronAPI.getOllamaStatus().then((s) => setOllamaReady(s.ready));
+    window.electronAPI.getSettings().then((s) => {
+      if (s && s.default_duration_min) setDuration(s.default_duration_min);
+    });
     const off = window.electronAPI.onExtensionStatusChange((_e, s) =>
       setExtConnected(s.connected)
     );
@@ -115,7 +118,10 @@ export default function Dashboard({ navigate }) {
             {[25, 45, 60, 90].map((d) => (
               <button
                 key={d}
-                onClick={() => setDuration(d)}
+                onClick={() => {
+                  setDuration(d);
+                  window.electronAPI.updateSettings({ default_duration_min: d });
+                }}
                 className={`flex-1 py-2 rounded-lg border ${
                   duration === d ? 'border-accent bg-accent/10' : 'border-border'
                 }`}

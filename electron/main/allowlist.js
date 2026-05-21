@@ -50,10 +50,8 @@ const KNOWN_DISTRACTIONS = new Set([
   'twitter.com',
   'x.com',
   'tiktok.com',
-  'reddit.com',
   'snapchat.com',
   'pinterest.com',
-  'discord.com',
   'twitch.tv'
 ]);
 
@@ -78,8 +76,8 @@ function checkRules({ url, workType }) {
     return 'allow';
   }
 
-  // YouTube is intentionally NOT in the block list — needs LLM judgment.
-  // Same for medium.com, dev.to, etc. — could be productive or not.
+  // YouTube, reddit and discord are intentionally NOT hard-blocked — a subreddit
+  // or dev server can be on-topic, so the LLM judges them with context.
   if (KNOWN_DISTRACTIONS.has(domain)) return 'block';
 
   return 'unknown';

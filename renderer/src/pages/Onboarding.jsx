@@ -12,12 +12,16 @@ export default function Onboarding({ onDone }) {
 
   const finish = async () => {
     setSaving(true);
-    await window.electronAPI.updateSettings({
-      personality,
-      gemini_api_key: apiKey || null,
-      onboarding_completed: 1
-    });
-    onDone();
+    try {
+      await window.electronAPI.updateSettings({
+        personality,
+        gemini_api_key: apiKey || null,
+        onboarding_completed: 1
+      });
+      onDone();
+    } catch {
+      setSaving(false);
+    }
   };
 
   return (

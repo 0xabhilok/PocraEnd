@@ -25,6 +25,8 @@ function startWsServer() {
 
   wss.on('connection', (ws) => {
     clients.add(ws);
+    ws.isAlive = true;
+    ws.on('pong', () => { ws.isAlive = true; });
     console.log('[ws] Extension connected. Total:', clients.size);
     broadcastStatus();
 
@@ -62,6 +64,25 @@ function startWsServer() {
   wss.on('error', (err) => {
     console.error('[ws] Server error:', err.message);
   });
+
+  // Drop sockets that stopped responding (e.g. a suspended extension worker)
+  // so the connected-count stays accurate.
+  const heartbeat = setInterval(() => {
+    for (const ws of clients) {
+      if (ws.isAlive === false) {
+        ws.terminate();
+        continue;
+      }
+      ws.isAlive = false;
+      try {
+        ws.ping();
+      } catch {
+        // ignore — a failed ping means the socket is already gone
+      }
+    }
+  }, 15000);
+
+  wss.on('close', () => clearInterval(heartbeat));
 
   console.log(`[ws] Listening on ws://127.0.0.1:${PORT}`);
 }

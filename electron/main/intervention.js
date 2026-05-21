@@ -39,11 +39,16 @@ async function handleActivityChange(data) {
   if (newKey === lastClassifiedKey) return;
   lastClassifiedKey = newKey;
 
-  // Rules layer first (skip LLM if hardcoded)
+  // Whitelisted this session ("wrong guess") — leave it alone.
   if (data.url) {
     const domain = extractDomain(data.url);
     if (sm.isWhitelisted({ url: data.url, domain })) return;
+  } else if (data.appName && sm.isWhitelisted({ appName: data.appName })) {
+    return;
+  }
 
+  // Rules layer for browser tabs (skip LLM if hardcoded)
+  if (data.url) {
     const verdict = checkRules({ url: data.url, workType: sm.getState().workType });
     if (verdict === 'allow') return;
     if (verdict === 'block') {
@@ -169,10 +174,12 @@ function handlePopupAction(action) {
     closeInterventionPopup();
     lastClassifiedKey = null;
   } else if (action === 'wrong_guess') {
-    const domain = drift.url ? extractDomain(drift.url) : null;
-    sm.addWhitelist({ url: drift.url, domain });
-    if (sessionId) {
-      addToSessionWhitelist(sessionId, { url: drift.url, domain });
+    if (drift.url) {
+      const domain = extractDomain(drift.url);
+      sm.addWhitelist({ url: drift.url, domain });
+      if (sessionId) addToSessionWhitelist(sessionId, { url: drift.url, domain });
+    } else if (drift.appName) {
+      sm.addWhitelist({ appName: drift.appName });
     }
     sm.resetDrift();
     closeInterventionPopup();

@@ -4,6 +4,14 @@ const { app } = require('electron');
 
 let db = null;
 
+// Format a Date as a local-time YYYY-MM-DD string.
+function localYMD(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function initDb() {
   const dbPath = path.join(app.getPath('userData'), 'pocraend.db');
   db = new Database(dbPath);
@@ -160,25 +168,25 @@ function getDashboardData() {
     ORDER BY id DESC LIMIT 1
   `).get();
 
-  // Simple streak calc: consecutive days with at least one session
+  // Streak: consecutive local-time days with at least one real session.
   const days = getDb().prepare(`
-    SELECT DISTINCT date(started_at) as d
+    SELECT DISTINCT date(started_at, 'localtime') as d
     FROM sessions
     WHERE actual_duration_min > 0
     ORDER BY d DESC
   `).all().map(r => r.d);
 
   let streak = 0;
-  const today = new Date().toISOString().slice(0, 10);
-  let cursor = new Date(today);
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0); // local midnight, today
+  // If there's no session today yet, the streak can still run up to yesterday.
+  if (days[0] && days[0] !== localYMD(cursor)) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
   for (const d of days) {
-    if (d === cursor.toISOString().slice(0, 10)) {
+    if (d === localYMD(cursor)) {
       streak++;
       cursor.setDate(cursor.getDate() - 1);
-    } else if (streak === 0 && d === new Date(Date.now() - 86400000).toISOString().slice(0, 10)) {
-      // yesterday counts as a streak start if today is empty
-      streak++;
-      cursor = new Date(Date.now() - 86400000 * 2);
     } else {
       break;
     }
