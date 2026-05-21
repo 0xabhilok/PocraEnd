@@ -8,13 +8,13 @@
 //
 // Run:  node test-accuracy.js
 // The rules-layer cases run anywhere. The LLM cases need Ollama running
-// with the qwen2.5:0.5b model; if Ollama is offline they are skipped.
+// with the qwen2.5:3b model; if Ollama is offline they are skipped.
 
-const { checkRules, extractDomain } = require('./electron/main/allowlist');
+const { checkRules, checkAppRules, extractDomain } = require('./electron/main/allowlist');
 const { classificationPrompt } = require('./electron/main/prompts');
 
 const OLLAMA = 'http://127.0.0.1:11434';
-const MODEL = 'qwen2.5:0.5b';
+const MODEL = 'qwen2.5:3b';
 
 // --- Labeled test set ---------------------------------------------------
 // `expect` is the verdict a reasonable human would give.
@@ -53,7 +53,8 @@ const CASES = [
   // writing — LLM
   { topic: 'Essay on climate change', workType: 'writing', url: 'https://www.youtube.com/watch?v=e', title: 'Climate Change: The Facts - Documentary', expect: 'RELEVANT' },
 
-  // desktop apps — always LLM (no url)
+  // desktop apps (no url)
+  { topic: 'Full stack project', workType: 'coding', appName: 'Claude', windowTitle: 'Claude', expect: 'RELEVANT' },
   { topic: 'React assignment', workType: 'coding', appName: 'Visual Studio Code', windowTitle: 'App.jsx - pocraend', expect: 'RELEVANT' },
   { topic: 'React assignment', workType: 'coding', appName: 'Windows Terminal', windowTitle: 'npm run dev', expect: 'RELEVANT' },
   { topic: 'React assignment', workType: 'coding', appName: 'Discord', windowTitle: '#general', expect: 'DISTRACTION' },
@@ -91,7 +92,9 @@ async function ollamaOnline() {
 }
 
 function isRulesCase(c) {
-  return c.url && checkRules({ url: c.url, workType: c.workType }) !== 'unknown';
+  if (c.url) return checkRules({ url: c.url, workType: c.workType }) !== 'unknown';
+  if (c.appName) return checkAppRules({ appName: c.appName }) === 'allow';
+  return false;
 }
 
 async function predict(c) {
@@ -99,6 +102,10 @@ async function predict(c) {
     const v = checkRules({ url: c.url, workType: c.workType });
     if (v === 'allow') return { verdict: 'RELEVANT', via: 'rules' };
     if (v === 'block') return { verdict: 'DISTRACTION', via: 'rules' };
+  } else if (c.appName) {
+    if (checkAppRules({ appName: c.appName }) === 'allow') {
+      return { verdict: 'RELEVANT', via: 'rules' };
+    }
   }
   const prompt = classificationPrompt({
     topic: c.topic,

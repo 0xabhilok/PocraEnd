@@ -1,9 +1,15 @@
 // Hardcoded rules: known productive domains per work type.
 // If this returns true, skip the LLM call entirely.
 
+// Always allowed regardless of work type: local dev servers and AI assistants.
 const ALWAYS_ALLOWED_DOMAINS = new Set([
   'localhost',
-  '127.0.0.1'
+  '127.0.0.1',
+  'claude.ai',
+  'chatgpt.com',
+  'chat.openai.com',
+  'gemini.google.com',
+  'perplexity.ai'
 ]);
 
 const PER_WORKTYPE_ALLOWED = {
@@ -55,6 +61,28 @@ const KNOWN_DISTRACTIONS = new Set([
   'twitch.tv'
 ]);
 
+// Desktop apps that are clearly work tools — never a distraction.
+// Matched case-insensitively as a substring of the OS-reported app name.
+const PRODUCTIVE_APPS = [
+  'claude',
+  'chatgpt',
+  'visual studio code',
+  'cursor',
+  'intellij',
+  'pycharm',
+  'webstorm',
+  'android studio',
+  'sublime text',
+  'notepad++',
+  'windows terminal',
+  'powershell',
+  'command prompt',
+  'git bash',
+  'postman',
+  'github desktop',
+  'docker desktop'
+];
+
 function extractDomain(url) {
   try {
     const u = new URL(url);
@@ -83,4 +111,12 @@ function checkRules({ url, workType }) {
   return 'unknown';
 }
 
-module.exports = { checkRules, extractDomain };
+// Returns: 'allow' | 'unknown' for a desktop app ('unknown' means: ask the LLM).
+function checkAppRules({ appName }) {
+  if (!appName) return 'unknown';
+  const name = appName.toLowerCase();
+  if (PRODUCTIVE_APPS.some((a) => name.includes(a))) return 'allow';
+  return 'unknown';
+}
+
+module.exports = { checkRules, checkAppRules, extractDomain };

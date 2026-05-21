@@ -5,7 +5,7 @@ const { spawn } = require('child_process');
 const { shell } = require('electron');
 
 const OLLAMA_API = 'http://127.0.0.1:11434';
-const OLLAMA_MODEL = 'qwen2.5:0.5b';
+const OLLAMA_MODEL = 'qwen2.5:3b';
 const INSTALLER_URL = 'https://ollama.com/download/OllamaSetup.exe';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

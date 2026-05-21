@@ -37,7 +37,7 @@ minutes becomes fifty.
 
 - **Real-time drift detection** — Watches your active browser tab and desktop app, and asks a local LLM whether each one is relevant to your stated task.
 - **Smart interventions** — Distractions trigger a silent 5-second grace timer. Stay too long and a popup appears with three choices: get back to work, snooze, or mark a wrong guess.
-- **100% local AI** — Classification runs on [Ollama](https://ollama.com) with Qwen 2.5 0.5B, set up with one click from inside the app. Your tab titles and URLs never leave your machine.
+- **100% local AI** — Classification runs on [Ollama](https://ollama.com) with Qwen 2.5 3B, set up with one click from inside the app. Your tab titles and URLs never leave your machine.
 - **Optional cloud fallback** — Bring your own Gemini API key for higher accuracy on ambiguous cases. Entirely opt-in.
 - **Three coach personalities** — Pick how PocraEnd talks to you: *Dark Humor* (roasts you with love), *Drill Sergeant* (no nonsense), or *Supportive Friend* (gentle).
 - **Custom motivations** — Write your own callout lines, or let the AI generate them on the fly.
@@ -88,7 +88,7 @@ When the popup appears, you get three buttons:
 | Desktop shell | Electron 33 (Node.js + Chromium) |
 | UI | React 18 + Tailwind CSS + Vite |
 | Local storage | SQLite via `better-sqlite3` |
-| Local AI | Ollama + Qwen 2.5 0.5B |
+| Local AI | Ollama + Qwen 2.5 3B |
 | Cloud AI (optional) | Gemini 1.5 Flash (BYOK) |
 | Browser detection | Chrome Extension (Manifest V3) |
 | Desktop app detection | `active-win` |
@@ -134,7 +134,7 @@ window watcher together.
 ### 3. Set up the local AI
 
 On first launch, the onboarding screen checks for **Ollama** and the
-**`qwen2.5:0.5b`** model. If either is missing, click **"Set up Ollama
+**`qwen2.5:3b`** model. If either is missing, click **"Set up Ollama
 automatically"** — PocraEnd downloads the official Ollama installer, runs it, and
 pulls the model for you. You can also trigger this later from the dashboard
 banner.
@@ -218,7 +218,7 @@ PocraEnd is built privacy-first:
 - Chrome only for browser detection
 - One coach personality at a time (no per-session switching)
 - No streak forgiveness — one missed day resets the streak
-- Qwen 0.5B is small; expect ~75–85% accuracy. Add a Gemini key for hard cases.
+- Local AI accuracy depends on the model; add a Gemini key for the hardest cases.
 
 **Planned for v0.2**
 

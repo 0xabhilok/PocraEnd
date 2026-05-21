@@ -47,7 +47,7 @@ export default function OllamaSetup({ onReady }) {
       <div className="space-y-2 mb-4">
         <Check ok={status.installed} label="Ollama installed" />
         <Check ok={status.running} label="Ollama running" />
-        <Check ok={status.modelReady} label="AI model (qwen2.5:0.5b)" />
+        <Check ok={status.modelReady} label="AI model (qwen2.5:3b)" />
       </div>
 
       {status.ready && !busy && (

@@ -1,7 +1,7 @@
 // The brain of PocraEnd. Decides when to intervene and how.
 
 const sm = require('./session-manager');
-const { checkRules, extractDomain } = require('./allowlist');
+const { checkRules, checkAppRules, extractDomain } = require('./allowlist');
 const { classifyDistraction, generateMotivation } = require('./llm-router');
 const { logDriftEvent, incrementSessionCounter, addToSessionWhitelist, getSettings } = require('./db');
 const { showInterventionPopup, closeInterventionPopup } = require('./popup-window');
@@ -55,6 +55,11 @@ async function handleActivityChange(data) {
       startDriftTimer({ ...data, classification: { verdict: 'DISTRACTION', confidence: 1, source: 'rules' } });
       return;
     }
+  }
+
+  // Rules layer for desktop apps — known work tools skip the LLM entirely.
+  if (!data.url && data.appName) {
+    if (checkAppRules({ appName: data.appName }) === 'allow') return;
   }
 
   // LLM classification

@@ -2,7 +2,7 @@ const { classificationPrompt, motivationPrompt } = require('./prompts');
 const { getSettings, getMotivations } = require('./db');
 
 const OLLAMA_URL = 'http://localhost:11434/api/generate';
-const OLLAMA_MODEL = 'qwen2.5:0.5b';
+const OLLAMA_MODEL = 'qwen2.5:3b';
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 // --- Local model call ---
