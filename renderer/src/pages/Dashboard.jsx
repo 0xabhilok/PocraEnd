@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ExtensionStatus from '../components/ExtensionStatus.jsx';
 
 export default function Dashboard({ navigate }) {
   const [data, setData] = useState(null);
   const [extConnected, setExtConnected] = useState(false);
   const [topic, setTopic] = useState('');
+  const [topicError, setTopicError] = useState(false);
   const [workType, setWorkType] = useState('coding');
   const [duration, setDuration] = useState(25);
+  const topicRef = useRef(null);
 
   useEffect(() => {
     window.electronAPI.getDashboardData().then(setData);
@@ -19,7 +21,8 @@ export default function Dashboard({ navigate }) {
 
   const startSession = async () => {
     if (!topic.trim()) {
-      alert('What are you working on? Type a topic first.');
+      setTopicError(true);
+      topicRef.current?.focus();
       return;
     }
     if (!extConnected) {
@@ -66,12 +69,16 @@ export default function Dashboard({ navigate }) {
         <label className="block mb-4">
           <span className="text-sm text-muted block mb-1">What are you working on?</span>
           <input
+            ref={topicRef}
             type="text"
             placeholder="e.g., React assignment, DBMS revision"
             value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            className="w-full bg-bg border border-border rounded-lg p-3 text-text"
+            onChange={(e) => { setTopic(e.target.value); setTopicError(false); }}
+            className={`w-full bg-bg border rounded-lg p-3 text-text ${topicError ? 'border-red-500' : 'border-border'}`}
           />
+          {topicError && (
+            <span className="text-xs text-red-500 mt-1 block">Type what you're working on first.</span>
+          )}
         </label>
 
         <label className="block mb-4">
