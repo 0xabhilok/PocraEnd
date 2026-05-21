@@ -23,7 +23,8 @@ function initDb() {
       personality TEXT NOT NULL DEFAULT 'dark_humor',
       gemini_api_key TEXT,
       default_duration_min INTEGER DEFAULT 25,
-      onboarding_completed INTEGER DEFAULT 0
+      onboarding_completed INTEGER DEFAULT 0,
+      ai_model TEXT DEFAULT 'phi3.5'
     );
 
     CREATE TABLE IF NOT EXISTS sessions (
@@ -67,6 +68,13 @@ function initDb() {
     );
   `);
 
+  // Migration: databases created before model selection lack the ai_model column.
+  try {
+    db.exec("ALTER TABLE settings ADD COLUMN ai_model TEXT DEFAULT 'phi3.5'");
+  } catch {
+    // column already exists — nothing to do
+  }
+
   // Make sure settings row exists
   const exists = db.prepare('SELECT id FROM settings WHERE id = 1').get();
   if (!exists) {
@@ -85,7 +93,7 @@ function getSettings() {
 }
 
 function updateSettings(patch) {
-  const allowed = ['personality', 'gemini_api_key', 'default_duration_min', 'onboarding_completed'];
+  const allowed = ['personality', 'gemini_api_key', 'default_duration_min', 'onboarding_completed', 'ai_model'];
   const updates = [];
   const values = [];
   for (const [k, v] of Object.entries(patch)) {

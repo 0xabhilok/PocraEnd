@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ModelManager from '../components/ModelManager.jsx';
 
 export default function Settings({ navigate }) {
   const [settings, setSettings] = useState(null);
@@ -74,6 +75,10 @@ export default function Settings({ navigate }) {
             </button>
           ))}
         </div>
+      </Section>
+
+      <Section title="Local AI model">
+        <ModelManager />
       </Section>
 
       <Section title="Custom motivations">

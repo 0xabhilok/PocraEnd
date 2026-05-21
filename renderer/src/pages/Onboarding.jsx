@@ -47,8 +47,9 @@ export default function Onboarding({ onDone }) {
           <div>
             <h2 className="text-2xl font-bold mb-3">Local AI</h2>
             <p className="text-muted mb-4">
-              PocraEnd uses a local model (Qwen 2.5 3B) via Ollama — it
-              runs entirely on your machine. PocraEnd can set it up for you.
+              PocraEnd uses a local AI model via Ollama — it runs entirely on
+              your machine. Pick the one that fits your PC and PocraEnd will set
+              it up for you.
             </p>
             <div className="bg-bg border border-border rounded-lg p-4 mb-6">
               <OllamaSetup onReady={() => setOllamaReady(true)} />

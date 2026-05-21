@@ -78,10 +78,17 @@ function registerIpcHandlers({ getMainWindow }) {
   });
   ipcMain.handle('motivations:delete', (_e, id) => db.deleteMotivation(id));
 
-  // Ollama setup
-  ipcMain.handle('ollama:status', () => ollamaSetup.getStatus());
+  // Ollama / AI model
+  ipcMain.handle('ollama:status', () => {
+    const settings = db.getSettings();
+    return ollamaSetup.getStatus(settings && settings.ai_model);
+  });
 
-  ipcMain.handle('ollama:install', async () => {
+  ipcMain.handle('ollama:models', () => ollamaSetup.listInstalledModels());
+
+  ipcMain.handle('system:info', () => ollamaSetup.getDeviceInfo());
+
+  ipcMain.handle('ollama:install', async (_e, model) => {
     const emit = (data) => {
       const win = getMainWindow();
       if (win && !win.isDestroyed()) {
@@ -89,12 +96,26 @@ function registerIpcHandlers({ getMainWindow }) {
       }
     };
     try {
-      const status = await ollamaSetup.runSetup(emit);
+      const status = await ollamaSetup.runSetup(model, emit);
       return { ok: true, status };
     } catch (err) {
       emit({ phase: 'error', message: err.message });
       return { ok: false, error: err.message };
     }
+  });
+
+  ipcMain.handle('ollama:delete', async (_e, model) => {
+    try {
+      await ollamaSetup.deleteModel(model);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('ollama:set-active', (_e, model) => {
+    db.updateSettings({ ai_model: model });
+    return db.getSettings();
   });
 }
 

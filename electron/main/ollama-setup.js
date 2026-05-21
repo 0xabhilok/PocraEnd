@@ -5,7 +5,8 @@ const { spawn } = require('child_process');
 const { shell } = require('electron');
 
 const OLLAMA_API = 'http://127.0.0.1:11434';
-const OLLAMA_MODEL = 'qwen2.5:3b';
+const DEFAULT_MODEL = 'phi3.5';
+const KNOWN_MODELS = ['qwen2.5:0.5b', 'qwen2.5:1.5b', 'phi3.5', 'llama3.2:3b'];
 const INSTALLER_URL = 'https://ollama.com/download/OllamaSetup.exe';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -35,24 +36,32 @@ async function isRunning() {
   }
 }
 
-async function hasModel() {
+// Names of every model currently pulled into Ollama.
+async function listInstalledModels() {
   try {
     const res = await fetchWithTimeout(`${OLLAMA_API}/api/tags`, 4000);
-    if (!res.ok) return false;
+    if (!res.ok) return [];
     const data = await res.json();
-    return (data.models || []).some((m) =>
-      String(m.name || '').startsWith(OLLAMA_MODEL)
-    );
+    return (data.models || []).map((m) => String(m.name || ''));
   } catch {
-    return false;
+    return [];
   }
 }
 
-async function getStatus() {
+async function hasModel(model) {
+  const installed = await listInstalledModels();
+  return installed.some((name) => name.startsWith(model));
+}
+
+async function getStatus(model = DEFAULT_MODEL) {
   const running = await isRunning();
   const installed = running || fs.existsSync(ollamaExePath());
-  const modelReady = running ? await hasModel() : false;
-  return { installed, running, modelReady, ready: running && modelReady };
+  const modelReady = running ? await hasModel(model) : false;
+  return { installed, running, model, modelReady, ready: running && modelReady };
+}
+
+function getDeviceInfo() {
+  return { totalRamGB: Math.round(os.totalmem() / 1024 / 1024 / 1024) };
 }
 
 async function downloadFile(url, dest, onProgress) {
@@ -99,11 +108,11 @@ function startOllama() {
   return true;
 }
 
-async function pullModel(onProgress) {
+async function pullModel(model, onProgress) {
   const res = await fetch(`${OLLAMA_API}/api/pull`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: OLLAMA_MODEL, stream: true })
+    body: JSON.stringify({ name: model, stream: true })
   });
   if (!res.ok || !res.body) {
     throw new Error(`Model download failed (HTTP ${res.status})`);
@@ -136,9 +145,25 @@ async function pullModel(onProgress) {
   }
 }
 
-// Orchestrates the full setup. `emit` receives { phase, percent, message }.
-async function runSetup(emit) {
-  let status = await getStatus();
+async function deleteModel(model) {
+  if (!KNOWN_MODELS.includes(model)) {
+    throw new Error(`Unknown model: ${model}`);
+  }
+  const res = await fetch(`${OLLAMA_API}/api/delete`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: model })
+  });
+  if (!res.ok) {
+    throw new Error(`Could not delete the model (HTTP ${res.status})`);
+  }
+}
+
+// Installs Ollama if needed, then makes sure `model` is downloaded.
+// `emit` receives { phase, percent, message }.
+async function runSetup(model, emit) {
+  const target = KNOWN_MODELS.includes(model) ? model : DEFAULT_MODEL;
+  let status = await getStatus(target);
 
   if (!status.installed) {
     const dest = path.join(os.tmpdir(), 'OllamaSetup.exe');
@@ -168,10 +193,10 @@ async function runSetup(emit) {
     if (!up) throw new Error('Could not start Ollama. Please open it manually.');
   }
 
-  status = await getStatus();
+  status = await getStatus(target);
   if (!status.modelReady) {
     emit({ phase: 'pulling-model', percent: 0, message: 'Downloading AI model…' });
-    await pullModel((percent, st) =>
+    await pullModel(target, (percent, st) =>
       emit({
         phase: 'pulling-model',
         percent,
@@ -183,9 +208,16 @@ async function runSetup(emit) {
     );
   }
 
-  status = await getStatus();
-  emit({ phase: 'done', percent: 100, message: 'Ollama is ready.' });
+  status = await getStatus(target);
+  emit({ phase: 'done', percent: 100, message: 'Model is ready.' });
   return status;
 }
 
-module.exports = { getStatus, runSetup };
+module.exports = {
+  getStatus,
+  runSetup,
+  listInstalledModels,
+  deleteModel,
+  getDeviceInfo,
+  KNOWN_MODELS
+};

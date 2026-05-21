@@ -14,7 +14,7 @@ const { checkRules, checkAppRules, extractDomain } = require('./electron/main/al
 const { classificationPrompt } = require('./electron/main/prompts');
 
 const OLLAMA = 'http://127.0.0.1:11434';
-const MODEL = 'qwen2.5:3b';
+const MODEL = process.argv[2] || 'qwen2.5:3b';
 
 // --- Labeled test set ---------------------------------------------------
 // `expect` is the verdict a reasonable human would give.
@@ -134,6 +134,7 @@ function label(c) {
   const online = await ollamaOnline();
   console.log('PocraEnd classifier accuracy benchmark');
   console.log('='.repeat(70));
+  console.log(`Model: ${MODEL}`);
   console.log(online
     ? 'Ollama: ONLINE — running full benchmark (rules + LLM).'
     : 'Ollama: OFFLINE — running rules-layer cases only.');
