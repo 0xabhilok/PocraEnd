@@ -5,6 +5,9 @@
   "main": "electron/main/index.js",
   "author": "You",
   "license": "MIT",
+  "engines": {
+    "node": ">=18 <23"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
     "dev:renderer": "vite",
