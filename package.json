@@ -6,7 +6,7 @@
   "author": "You",
   "license": "MIT",
   "engines": {
-    "node": ">=18 <23"
+    "node": ">=18"
   },
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "active-win": "^8.2.1",
-    "better-sqlite3": "^11.3.0",
+    "better-sqlite3": "^12.10.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

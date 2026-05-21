@@ -21,18 +21,8 @@ REM --- Read Node major version ---
 for /f "tokens=1 delims=." %%v in ('node -v') do set NODEVER=%%v
 set NODEVER=!NODEVER:v=!
 
-if !NODEVER! GEQ 23 (
-  echo  PROBLEM: You are running Node !NODEVER!.
-  echo  PocraEnd needs Node 18, 20, or 22 ^(an LTS version^).
-  echo  Node 23+ has no prebuilt database binary, so install will fail.
-  echo.
-  echo  Fix: uninstall current Node, install Node 20 LTS from https://nodejs.org
-  echo.
-  pause
-  exit /b 1
-)
 if !NODEVER! LSS 18 (
-  echo  Node !NODEVER! is too old. Install Node 20 LTS from https://nodejs.org
+  echo  Node !NODEVER! is too old. Install Node 20 ^(or newer^) from https://nodejs.org
   echo.
   pause
   exit /b 1
