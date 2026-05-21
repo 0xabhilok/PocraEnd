@@ -103,11 +103,9 @@ When the popup appears, you get three buttons:
 3. **Windows 10/11** — the only supported platform in v0.1
 4. **Google Chrome** — for the browser-tab extension
 
-> **Windows native modules:** `better-sqlite3` and `active-win` compile native code
-> during install. If `npm install` fails, install
-> **Visual Studio Build Tools** with the *"Desktop development with C++"* workload,
-> make sure **Python 3.x** is in your `PATH`, then retry with
-> `npm install --build-from-source`.
+> **No build tools needed.** `better-sqlite3` and `active-win` ship **prebuilt
+> binaries**, so `npm install` works without Visual Studio or Python. Just use a
+> current Node.js version — 18, 20, 22, or 24 are all supported (see `.nvmrc`).
 
 ### 1. Install the AI model
 
@@ -124,6 +122,10 @@ git clone https://github.com/0xabhilok/PocraEnd.git
 cd PocraEnd
 npm install
 ```
+
+> **Windows shortcut:** instead of `npm install`, double-click **`setup.bat`**.
+> It checks your Node version, clears any stale install, and installs everything
+> in one step.
 
 ### 3. Run in development mode
 
