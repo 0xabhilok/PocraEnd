@@ -37,7 +37,7 @@ minutes becomes fifty.
 
 - **Real-time drift detection** — Watches your active browser tab and desktop app, and asks a local LLM whether each one is relevant to your stated task.
 - **Smart interventions** — Distractions trigger a silent 5-second grace timer. Stay too long and a popup appears with three choices: get back to work, snooze, or mark a wrong guess.
-- **100% local AI** — Classification runs on [Ollama](https://ollama.com) with Qwen 2.5 0.5B. Your tab titles and URLs never leave your machine.
+- **100% local AI** — Classification runs on [Ollama](https://ollama.com) with Qwen 2.5 0.5B, set up with one click from inside the app. Your tab titles and URLs never leave your machine.
 - **Optional cloud fallback** — Bring your own Gemini API key for higher accuracy on ambiguous cases. Entirely opt-in.
 - **Three coach personalities** — Pick how PocraEnd talks to you: *Dark Humor* (roasts you with love), *Drill Sergeant* (no nonsense), or *Supportive Friend* (gentle).
 - **Custom motivations** — Write your own callout lines, or let the AI generate them on the fly.
@@ -99,23 +99,18 @@ When the popup appears, you get three buttons:
 ### Prerequisites
 
 1. **[Node.js](https://nodejs.org) 18 or newer**
-2. **[Ollama](https://ollama.com)** — for the local AI model
-3. **Windows 10/11** — the only supported platform in v0.1
-4. **Google Chrome** — for the browser-tab extension
+2. **Windows 10/11** — the only supported platform in v0.1
+3. **Google Chrome** — for the browser-tab extension
+
+> **Ollama is installed for you.** You don't need to install Ollama or the AI
+> model yourself — on first run, PocraEnd detects what's missing and sets it up
+> from inside the app (see step 3).
 
 > **No build tools needed.** `better-sqlite3` and `active-win` ship **prebuilt
 > binaries**, so `npm install` works without Visual Studio or Python. Just use a
 > current Node.js version — 18, 20, 22, or 24 are all supported (see `.nvmrc`).
 
-### 1. Install the AI model
-
-```bash
-ollama pull qwen2.5:0.5b
-```
-
-Make sure Ollama is running — it auto-starts on Windows, or run `ollama serve`.
-
-### 2. Install PocraEnd
+### 1. Install PocraEnd
 
 ```bash
 git clone https://github.com/0xabhilok/PocraEnd.git
@@ -127,7 +122,7 @@ npm install
 > It checks your Node version, clears any stale install, and installs everything
 > in one step.
 
-### 3. Run in development mode
+### 2. Run in development mode
 
 ```bash
 npm run dev
@@ -135,6 +130,14 @@ npm run dev
 
 This starts the Vite dev server, the Electron app, the WebSocket server, and the
 window watcher together.
+
+### 3. Set up the local AI
+
+On first launch, the onboarding screen checks for **Ollama** and the
+**`qwen2.5:0.5b`** model. If either is missing, click **"Set up Ollama
+automatically"** — PocraEnd downloads the official Ollama installer, runs it, and
+pulls the model for you. You can also trigger this later from the dashboard
+banner.
 
 ### 4. Load the Chrome extension
 
