@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import OllamaSetup from '../components/OllamaSetup.jsx';
 
 export default function Onboarding({ onDone }) {
   const [step, setStep] = useState(0);
   const [apiKey, setApiKey] = useState('');
   const [personality, setPersonality] = useState('dark_humor');
   const [saving, setSaving] = useState(false);
+  const [ollamaReady, setOllamaReady] = useState(false);
 
   const next = () => setStep((s) => s + 1);
 
@@ -41,19 +43,27 @@ export default function Onboarding({ onDone }) {
           <div>
             <h2 className="text-2xl font-bold mb-3">Local AI</h2>
             <p className="text-muted mb-4">
-              PocraEnd uses a small local model (Qwen 2.5 0.5B) via Ollama. Before
-              continuing, make sure Ollama is installed and running.
+              PocraEnd uses a small local model (Qwen 2.5 0.5B) via Ollama — it
+              runs entirely on your machine. PocraEnd can set it up for you.
             </p>
-            <div className="bg-bg border border-border rounded-lg p-3 mb-6 font-mono text-sm">
-              <p>1. Install Ollama from ollama.com</p>
-              <p>2. Run: <span className="text-accent">ollama pull qwen2.5:0.5b</span></p>
+            <div className="bg-bg border border-border rounded-lg p-4 mb-6">
+              <OllamaSetup onReady={() => setOllamaReady(true)} />
             </div>
-            <button
-              onClick={next}
-              className="w-full bg-accent text-white py-3 rounded-lg font-medium"
-            >
-              Ollama is ready
-            </button>
+            {ollamaReady ? (
+              <button
+                onClick={next}
+                className="w-full bg-accent text-white py-3 rounded-lg font-medium"
+              >
+                Continue
+              </button>
+            ) : (
+              <button
+                onClick={next}
+                className="w-full text-muted text-sm py-2 hover:text-text"
+              >
+                Skip for now — I'll set this up later
+              </button>
+            )}
           </div>
         )}
 

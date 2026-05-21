@@ -20,6 +20,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMotivations: () => ipcRenderer.invoke('motivations:list'),
   addMotivation: (text) => ipcRenderer.invoke('motivations:add', text),
   deleteMotivation: (id) => ipcRenderer.invoke('motivations:delete', id),
+
+  // Ollama setup
+  getOllamaStatus: () => ipcRenderer.invoke('ollama:status'),
+  installOllama: () => ipcRenderer.invoke('ollama:install'),
+  onOllamaProgress: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on('ollama:progress', handler);
+    return () => ipcRenderer.removeListener('ollama:progress', handler);
+  },
   onExtensionStatusChange: (cb) => {
     const handler = (e, data) => cb(e, data);
     ipcRenderer.on('extension:status', handler);

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import ExtensionStatus from '../components/ExtensionStatus.jsx';
+import OllamaSetup from '../components/OllamaSetup.jsx';
 
 export default function Dashboard({ navigate }) {
   const [data, setData] = useState(null);
@@ -8,11 +9,13 @@ export default function Dashboard({ navigate }) {
   const [topicError, setTopicError] = useState(false);
   const [workType, setWorkType] = useState('coding');
   const [duration, setDuration] = useState(25);
+  const [ollamaReady, setOllamaReady] = useState(true);
   const topicRef = useRef(null);
 
   useEffect(() => {
     window.electronAPI.getDashboardData().then(setData);
     window.electronAPI.getExtensionStatus().then((s) => setExtConnected(s.connected));
+    window.electronAPI.getOllamaStatus().then((s) => setOllamaReady(s.ready));
     const off = window.electronAPI.onExtensionStatusChange((_e, s) =>
       setExtConnected(s.connected)
     );
@@ -54,6 +57,16 @@ export default function Dashboard({ navigate }) {
       <div className="mb-6">
         <ExtensionStatus />
       </div>
+
+      {!ollamaReady && (
+        <div className="bg-surface border border-yellow-500/40 rounded-2xl p-5 mb-6">
+          <h3 className="font-bold mb-1">Local AI not ready</h3>
+          <p className="text-sm text-muted mb-4">
+            PocraEnd needs Ollama to catch distractions. Set it up now:
+          </p>
+          <OllamaSetup onReady={() => setOllamaReady(true)} />
+        </div>
+      )}
 
       {data && (
         <div className="grid grid-cols-3 gap-4 mb-8">

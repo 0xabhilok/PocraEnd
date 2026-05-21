@@ -3,6 +3,7 @@ const db = require('./db');
 
 const sm = require('./session-manager');
 const intervention = require('./intervention');
+const ollamaSetup = require('./ollama-setup');
 
 function registerIpcHandlers({ getMainWindow }) {
   intervention.setMainWindowGetter(getMainWindow);
@@ -76,6 +77,25 @@ function registerIpcHandlers({ getMainWindow }) {
     return { id, text };
   });
   ipcMain.handle('motivations:delete', (_e, id) => db.deleteMotivation(id));
+
+  // Ollama setup
+  ipcMain.handle('ollama:status', () => ollamaSetup.getStatus());
+
+  ipcMain.handle('ollama:install', async () => {
+    const emit = (data) => {
+      const win = getMainWindow();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('ollama:progress', data);
+      }
+    };
+    try {
+      const status = await ollamaSetup.runSetup(emit);
+      return { ok: true, status };
+    } catch (err) {
+      emit({ phase: 'error', message: err.message });
+      return { ok: false, error: err.message };
+    }
+  });
 }
 
 module.exports = { registerIpcHandlers };
