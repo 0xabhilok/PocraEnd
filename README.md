@@ -409,6 +409,18 @@ PocraEnd is built privacy-first:
 > Every version of PocraEnd, in order — built across a single intense day,
 > **2026-05-21**. Each entry maps to a real commit.
 
+### Before v0.1.0 — Focus-Guardian
+
+PocraEnd grew out of an earlier project of mine:
+**[Focus-Guardian](https://github.com/0xabhilok/Focus-Guardian)** — a
+Windows productivity monitor written in PowerShell that tracked app usage
+and classified activity as productive or distracted. PocraEnd is that idea
+taken further: instead of monitoring and reporting *after the fact*, it
+understands your task with a local LLM and steps in *in the moment*. Same
+goal — beat procrastination — but rebuilt from scratch as a proper
+Electron + React + browser-extension desktop app. This project is the
+direct successor to, and was inspired by, Focus-Guardian.
+
 ### v0.1.0 — Initial build · `3a302d8`, `c67e1f5`
 
 The first working version: an Electron + React desktop app that watches your
