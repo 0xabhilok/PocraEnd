@@ -7,7 +7,7 @@
 Tell PocraEnd what you're working on. It watches your tabs and apps, and the
 moment you wander off, a **local AI** calls you out — before five minutes of
 scrolling becomes fifty. Everything runs on your machine.
-**No accounts, no telemetry, no data leaves your computer.**
+*No accounts, no telemetry, no data leaves your computer.*
 
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![Electron](https://img.shields.io/badge/Electron-33-47848F?logo=electron&logoColor=white)
