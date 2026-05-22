@@ -3,8 +3,13 @@
   "version": "0.1.0",
   "description": "AI-powered focus guardian — anti-procrastination desktop app",
   "main": "electron/main/index.js",
-  "author": "You",
+  "author": "0xabhilok",
   "license": "MIT",
+  "homepage": "https://github.com/0xabhilok/PocraEnd",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xabhilok/PocraEnd.git"
+  },
   "engines": {
     "node": ">=18"
   },
@@ -40,7 +45,7 @@
     "wait-on": "^8.0.1"
   },
   "build": {
-    "appId": "com.you.pocraend",
+    "appId": "com.0xabhilok.pocraend",
     "productName": "PocraEnd",
     "files": [
       "electron/**/*",
