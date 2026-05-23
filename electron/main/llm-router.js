@@ -66,9 +66,10 @@ async function classifyDistraction(context) {
   }
 
   // If local worked AND confidence is high enough, use it.
-  // NEUTRAL is the "uncertain" bucket by design, so accept it even with lower
-  // confidence — escalating to the cloud won't make it more certain.
-  if (localResult && (localResult.confidence >= 0.7 || localResult.verdict === 'NEUTRAL')) {
+  // NEUTRAL only counts at high confidence — a low-confidence NEUTRAL is the
+  // small model dodging the question rather than a real "this is a utility"
+  // verdict. Escalate to cloud / re-evaluate instead.
+  if (localResult && localResult.confidence >= 0.7) {
     return { ...localResult, source: 'local' };
   }
 

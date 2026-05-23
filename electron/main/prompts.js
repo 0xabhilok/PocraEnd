@@ -14,36 +14,50 @@ Work type: ${workType}
 They just opened:
 ${targetDescription}
 
-Categories:
-- "RELEVANT" → directly contributes to the stated work/study goal.
-  Examples: coding in VS Code, reading docs for the work topic, editing the project file, a YouTube tutorial ON the work topic.
+CATEGORIES — read carefully, the boundaries matter:
 
-- "DISTRACTION" → clearly unrelated entertainment or social scrolling.
-  Examples: Instagram reels, TikTok, random YouTube entertainment, gaming, movie streaming, sports highlights, celebrity news.
+"RELEVANT" → directly contributes to the stated work/study goal.
+  Examples: coding in VS Code on the project, reading docs for the work topic,
+  a YouTube tutorial ON the work topic.
 
-- "NEUTRAL" → support/utility activity, context-dependent, or unclear intent.
-  Not directly productive, but not entertainment either. Don't roast these.
+"DISTRACTION" → entertainment, leisure, or anything clearly unrelated to work.
+  This is the DEFAULT for entertainment of any kind. Be DECISIVE here.
   Examples:
-    * System / utility: File Explorer, Settings, Calculator, Snipping Tool, Task Manager, PDF viewer, clipboard tools
-    * Communication: email, calendar, Slack, Discord, WhatsApp, Teams (could be work, could be chat — uncertain)
-    * Generic browsing with unclear intent: bare google.com search, news pages opened by accident, undefined documentation
-    * Short breaks: music player, downloads/builds finishing, brief app switching
-    * Idle / loading screens
+    - Movies, TV shows, streaming (any movie title, any "Watch Online", any
+      streaming/video player page that isn't tutorial content)
+    - Social media reels and scrolling (Instagram, TikTok, Twitter/X, Snapchat)
+    - Gaming, sports highlights, celebrity news, gossip
+    - Random YouTube entertainment, music videos for leisure
+    - Anything with words like "Movie", "Full Movie", "Watch Online",
+      "Episode", "Season", "Trailer", "Highlights" in the title — unless
+      the user's stated work is film/video production
 
-Tie-breakers:
-- If unsure between RELEVANT and DISTRACTION → choose NEUTRAL.
-- A YouTube tutorial on the work topic = RELEVANT. YouTube reels/music/entertainment = DISTRACTION. Background music while working = NEUTRAL.
-- Social media (Instagram, Twitter, TikTok) = DISTRACTION unless their work literally involves that platform.
-- Email/calendar/Slack = NEUTRAL by default (they might be working, might not).
+"NEUTRAL" → ONLY for support/utility activities that are neither work nor
+  entertainment. Be STRICT — do not use NEUTRAL as an "I'm not sure" escape.
+  Examples (and basically ONLY these kinds):
+    - System utilities: File Explorer, Settings, Calculator, Snipping Tool,
+      Task Manager, PDF viewer, clipboard tools, screenshot tools
+    - Communication tools where intent is genuinely unclear: email, calendar,
+      Slack, Discord, WhatsApp, Teams
+    - Idle/loading screens, OS notifications
+
+DECISION RULES (apply in this order):
+1. Is it clearly entertainment, a movie, a video player, social scrolling, or
+   leisure? → DISTRACTION. Do NOT choose NEUTRAL for these.
+2. Is it a system utility or comms tool from the NEUTRAL examples above? → NEUTRAL.
+3. Does it directly help the stated work? → RELEVANT.
+4. Still genuinely uncertain between RELEVANT and DISTRACTION? → pick
+   DISTRACTION (better to interrupt than to miss a real drift). Do NOT
+   default to NEUTRAL just to avoid committing.
+
+Set confidence honestly (0.0–1.0). High confidence (>= 0.7) for clear cases.
 
 Respond ONLY in this JSON format, no other text:
 {"verdict":"RELEVANT","confidence":0.0,"reason":"short reason"}
 or
 {"verdict":"NEUTRAL","confidence":0.0,"reason":"short reason"}
 or
-{"verdict":"DISTRACTION","confidence":0.0,"reason":"short reason"}
-
-Confidence is 0.0 to 1.0.`;
+{"verdict":"DISTRACTION","confidence":0.0,"reason":"short reason"}`;
 }
 
 function motivationPrompt({ personality, topic, distraction, secondsOnDistraction }) {

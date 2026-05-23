@@ -17,8 +17,18 @@ function setMainWindowGetter(fn) {
 // Called when the user's active tab or app changes.
 // data = { url, title, tabId, appName, windowTitle, source: 'browser' | 'desktop' }
 async function handleActivityChange(data) {
-  if (!sm.isActive()) return;
-  if (sm.getState().inSnoozeWindow) return;
+  const target = data.url || data.appName || '(unknown)';
+  const titleSnippet = (data.title || data.windowTitle || '').slice(0, 80);
+  console.log(`[intervention] activity: ${target} | "${titleSnippet}"`);
+
+  if (!sm.isActive()) {
+    console.log('[intervention] → skipped (no active session)');
+    return;
+  }
+  if (sm.getState().inSnoozeWindow) {
+    console.log('[intervention] → skipped (in snooze window)');
+    return;
+  }
 
   // If we had a drift in progress and the user moved away from it -> cancel
   const currentDriftUrl = sm.getState().currentDrift.url;
@@ -38,20 +48,28 @@ async function handleActivityChange(data) {
   }
 
   // Dedupe: if the same target was just classified, ignore
-  if (newKey === lastClassifiedKey) return;
+  if (newKey === lastClassifiedKey) {
+    console.log('[intervention] → skipped (dedup, same as last classified)');
+    return;
+  }
   lastClassifiedKey = newKey;
 
   // Whitelisted this session ("wrong guess") — leave it alone.
   if (data.url) {
     const domain = extractDomain(data.url);
-    if (sm.isWhitelisted({ url: data.url, domain })) return;
+    if (sm.isWhitelisted({ url: data.url, domain })) {
+      console.log(`[intervention] → skipped (whitelisted: ${domain})`);
+      return;
+    }
   } else if (data.appName && sm.isWhitelisted({ appName: data.appName })) {
+    console.log(`[intervention] → skipped (whitelisted app: ${data.appName})`);
     return;
   }
 
   // Rules layer for browser tabs (skip LLM if hardcoded)
   if (data.url) {
     const verdict = checkRules({ url: data.url, workType: sm.getState().workType });
+    console.log(`[intervention] rules verdict for ${extractDomain(data.url)}: ${verdict}`);
     if (verdict === 'allow' || verdict === 'neutral') return; // no popup either way
     if (verdict === 'block') {
       startDriftTimer({ ...data, classification: { verdict: 'DISTRACTION', confidence: 1, source: 'rules' } });
@@ -62,6 +80,7 @@ async function handleActivityChange(data) {
   // Rules layer for desktop apps — known work tools and neutral utilities skip the LLM.
   if (!data.url && data.appName) {
     const appVerdict = checkAppRules({ appName: data.appName });
+    console.log(`[intervention] app rules verdict for "${data.appName}": ${appVerdict}`);
     if (appVerdict === 'allow' || appVerdict === 'neutral') return; // no popup either way
   }
 
@@ -83,11 +102,20 @@ async function handleActivityChange(data) {
     return;
   }
 
+  console.log(
+    `[intervention] LLM verdict: ${classification.verdict} ` +
+    `(conf=${classification.confidence}, source=${classification.source}) ` +
+    `reason="${classification.reason || ''}"`
+  );
+
   // Only DISTRACTION triggers a popup. RELEVANT and NEUTRAL are both silent —
-  // NEUTRAL is the "uncertain / support activity" bucket (file explorer,
-  // calculator, email, etc.) and should never roast the user.
+  // NEUTRAL is the "support activity" bucket (file explorer, calculator,
+  // email, etc.) and should never roast the user.
   if (classification.verdict === 'DISTRACTION') {
+    console.log(`[intervention] → starting drift timer (${DRIFT_DELAY_MS}ms)`);
     startDriftTimer({ ...data, classification });
+  } else {
+    console.log('[intervention] → no popup (not a distraction)');
   }
 }
 
@@ -118,6 +146,8 @@ async function fireIntervention(drift) {
   const settings = getSettings();
   const distractionName = drift.title || drift.appName || drift.url || 'something';
   const secondsElapsed = Math.round((Date.now() - drift.detectedAt) / 1000);
+
+  console.log(`[intervention] FIRING popup for: ${distractionName}`);
 
   // Log the drift event
   logDriftEvent({
