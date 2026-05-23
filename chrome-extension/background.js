@@ -23,6 +23,11 @@ function connect() {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
+    // Report whatever tab is currently active right now. Without this, a user
+    // who started a PocraEnd session (or restarted the app) while sitting on a
+    // tab they hadn't switched to recently would be invisible to the detector
+    // until they happened to change tabs.
+    reportCurrentActiveTab('connect');
   };
 
   ws.onmessage = (e) => {
@@ -46,6 +51,10 @@ function connect() {
           }
         });
       }
+    } else if (msg.command === 'report_current_tab') {
+      // PocraEnd asked for the current tab — usually because a focus session
+      // just started and the user is already sitting on something.
+      reportCurrentActiveTab('requested');
     }
   };
 
@@ -70,6 +79,19 @@ function scheduleReconnect() {
 function send(payload) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   ws.send(JSON.stringify(payload));
+}
+
+// Query the currently-focused tab across all windows and report it as a
+// tab_switch so PocraEnd can classify it. Used on connect and on the
+// periodic heartbeat to recover from "user just sat there" gaps.
+function reportCurrentActiveTab(source) {
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+    const tab = tabs && tabs[0];
+    if (chrome.runtime.lastError || !tab || !tab.url) return;
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return;
+    console.log(`[PocraEnd ext] reporting current tab (${source}):`, tab.url);
+    send({ event: 'tab_switch', url: tab.url, title: tab.title, tabId: tab.id });
+  });
 }
 
 connect();
@@ -114,6 +136,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== 'keepalive') return;
   if (ws && ws.readyState === WebSocket.OPEN) {
     send({ event: 'ping' });
+    // Also re-report the current tab on each tick. This recovers detection
+    // when the user has been sitting on the same tab the whole time and no
+    // onActivated / onUpdated / onFocusChanged event has fired since the
+    // last classification. PocraEnd's own dedup (lastClassifiedKey) prevents
+    // duplicate popups when nothing has actually changed.
+    reportCurrentActiveTab('keepalive');
   } else {
     connect();
   }

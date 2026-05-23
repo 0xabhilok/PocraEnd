@@ -26,6 +26,13 @@ function registerIpcHandlers({ getMainWindow }) {
       plannedDurationMin: durationMin
     });
     sm.startSession({ sessionId, topic, workType, durationMin });
+    // Clear any stale dedup key from a previous session and ask the Chrome
+    // extension to re-report the current tab so this session evaluates the
+    // page the user is already sitting on (instead of waiting for them to
+    // switch tabs to trigger an event).
+    intervention.onSessionStarted();
+    const wsServer = require('./ws-server');
+    wsServer.broadcastToExtension({ command: 'report_current_tab' });
     return { sessionId, topic, workType, durationMin };
   });
 

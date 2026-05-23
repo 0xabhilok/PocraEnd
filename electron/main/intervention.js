@@ -258,9 +258,18 @@ function onSessionStopped() {
   closeInterventionPopup();
 }
 
+// Called from the session:start IPC handler so the first activity event of a
+// new session is never blocked by a dedup key left over from the last one.
+function onSessionStarted() {
+  sm.cancelDriftTimer();
+  sm.resetDrift();
+  lastClassifiedKey = null;
+}
+
 module.exports = {
   handleActivityChange,
   handlePopupAction,
   onSessionStopped,
+  onSessionStarted,
   setMainWindowGetter
 };
