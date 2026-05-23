@@ -15,6 +15,9 @@ scrolling becomes fifty. Everything runs on your machine.
 ![AI](https://img.shields.io/badge/AI-100%25%20local-7c5cff)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Version](https://img.shields.io/badge/version-0.1.0-orange)
+[![GitHub stars](https://img.shields.io/github/stars/0xabhilok/PocraEnd?style=social)](https://github.com/0xabhilok/PocraEnd/stargazers)
+
+**⭐ If PocraEnd helps you focus — please [star the repo](https://github.com/0xabhilok/PocraEnd/stargazers)!** It takes one click and helps a solo dev keep building.
 
 [Features](#features) · [How It Works](#how-it-works) · [Local LLM Research](#the-local-llm-research) · [Getting Started](#getting-started) · [The Journey](#the-journey-from-first-commit-to-here)
 
@@ -78,6 +81,7 @@ five minutes becomes fifty.
 
 - **Real-time drift detection** — Watches your active browser tab and desktop app, and decides whether each one is relevant to your stated task.
 - **Smart, two-layer classifier** — Deterministic rules handle known sites and apps instantly; a local LLM judges everything ambiguous.
+- **Three-category verdict** — Every activity is classified as **RELEVANT** (directly productive), **DISTRACTION** (entertainment / off-task), or **NEUTRAL** (utility / unclear intent). Only DISTRACTION triggers a popup — File Explorer, Snipping Tool, Calculator, email, calendar, and other support tools never roast you.
 - **Smart interventions** — A distraction triggers a silent 5-second grace timer. Stay too long and a popup appears with three choices: get back to work, snooze, or mark a wrong guess.
 - **100% local AI** — Classification runs on [Ollama](https://ollama.com). Your tab titles and URLs never leave your machine.
 - **Choose your own model** — A first-run picker offers four AI models with their disk / RAM / accuracy trade-offs and recommends the best fit for your PC. Switch, install, or delete models anytime in Settings.
@@ -114,24 +118,30 @@ the **one thing in focus**:
                                                   │
                               ┌───────────────────┴───────────────────┐
                               ▼                                       ▼
-                    ┌──────────────────┐                   ┌──────────────────┐
-                    │   Rules layer    │   ambiguous?       │    Local LLM     │
-                    │ allow / block    │ ─────────────────► │ RELEVANT or      │
-                    │ known sites/apps │                    │ DISTRACTION?     │
-                    └────────┬─────────┘                    └────────┬─────────┘
-                             │                                       │
-              ┌──────────────┴──────────────┐         ┌──────────────┴──────────────┐
-              ▼                             ▼         ▼                             ▼
-         RELEVANT                      DISTRACTION                              RELEVANT
-       (do nothing)                 5 s silent timer                         (do nothing)
-                                          │
-                             still there after 5 s?
-                                          │
-                                          ▼
-                              ┌────────────────────┐
-                              │ Intervention popup │
-                              └────────────────────┘
+                    ┌────────────────────────┐         ┌────────────────────────┐
+                    │     Rules layer        │ unknown?│     Local LLM          │
+                    │ allow / neutral / block│ ──────► │ RELEVANT / NEUTRAL /   │
+                    │ known sites & apps     │         │ DISTRACTION?           │
+                    └───────────┬────────────┘         └───────────┬────────────┘
+                                │                                  │
+              ┌─────────────────┼─────────────────┐    ┌───────────┼───────────┐
+              ▼                 ▼                 ▼    ▼           ▼           ▼
+          RELEVANT          NEUTRAL          DISTRACTION       RELEVANT      NEUTRAL
+        (do nothing)     (do nothing)              │         (do nothing) (do nothing)
+                                          5 s silent timer
+                                                  │
+                                     still there after 5 s?
+                                                  │
+                                                  ▼
+                                      ┌────────────────────┐
+                                      │ Intervention popup │
+                                      └────────────────────┘
 ```
+
+> **NEUTRAL** is the "support / unclear intent" bucket — File Explorer, Calculator,
+> Settings, Snipping Tool, email, calendar, generic browser search, Slack,
+> background music. These are not direct work output, but they aren't entertainment
+> either. PocraEnd stays silent on them instead of guessing wrong and roasting you.
 
 When the popup appears, you get three buttons:
 
@@ -155,14 +165,21 @@ small enough, and fast enough?**
 
 Not every decision needs an LLM. PocraEnd uses two layers:
 
-1. **Deterministic rules** (`allowlist.js`) — known-productive domains
-   (`github.com`, `stackoverflow.com`, `react.dev`…) and known work apps
-   (VS Code, terminals, Claude, ChatGPT…) are allowed instantly. Known
-   time-sinks (`instagram.com`, `tiktok.com`…) are blocked instantly. No model
-   call at all.
-2. **The LLM** — everything ambiguous (a YouTube tab, a Medium article, an
-   unknown app) goes to the local model, together with your stated task, for a
-   RELEVANT / DISTRACTION verdict.
+1. **Deterministic rules** (`allowlist.js`) — three buckets, each handled
+   without a model call:
+   - **allow** — known-productive domains (`github.com`, `stackoverflow.com`,
+     `react.dev`…) and known work apps (VS Code, terminals, Claude, ChatGPT…).
+   - **neutral** — system utilities (File Explorer, Snipping Tool, Calculator,
+     Settings) and ambiguous-by-default domains (Gmail, calendar, generic
+     google.com search). These support work without being direct output, so
+     PocraEnd stays silent rather than guessing.
+   - **block** — known time-sinks (`instagram.com`, `tiktok.com`…) trigger an
+     intervention instantly.
+2. **The LLM** — everything genuinely ambiguous (a YouTube tab, a Medium
+   article, an unknown app) goes to the local model with your stated task. It
+   returns one of three verdicts: **RELEVANT**, **NEUTRAL**, or **DISTRACTION**.
+   Only DISTRACTION triggers a popup; if the model is unsure, it returns
+   NEUTRAL and you're left alone.
 
 Because the rules layer is correct **by construction**, only genuinely ambiguous
 cases ever depend on the model.
@@ -503,12 +520,40 @@ first-run picker with disk / RAM / accuracy details and a device-based
 recommendation, plus a Settings panel to install, switch, and delete models. The
 active model moved into the database with a safe schema migration.
 
+### The NEUTRAL category
+
+A real-use issue: opening **Snipping Tool** during a coding session triggered a
+roast — the LLM saw an unfamiliar app and reflexively flagged it. So did briefly
+focusing Windows Explorer (the OS shell), Calculator, and a bare google.com
+search. None of these are work output — but none are entertainment either.
+
+Fix: a proper **third classification category**. Every activity is now RELEVANT,
+DISTRACTION, or **NEUTRAL** (support / utility / unclear intent). Neutral
+activities skip the popup entirely. Both the rules layer (new `NEUTRAL_APPS` and
+`NEUTRAL_DOMAINS` lists) and the LLM prompt (now taught the 3-way distinction
+with examples) support it. The classifier-unavailable fallback also became
+NEUTRAL — semantically honest about uncertainty instead of pretending everything
+is relevant.
+
+### Polish: popup layout & extension toolbar
+
+- The intervention popup was cutting off the third button when the LLM wrote a
+  long message. Rebuilt the layout as flexbox: message scrolls, buttons stay
+  pinned at the bottom no matter what.
+- The Chrome extension was showing a grey "P" placeholder in the toolbar
+  because `manifest.json` declared icons but no `action.default_icon`. Fixed.
+- Two correctness bugs in the drift detector: `lastClassifiedKey` was never
+  reset when a drift was cancelled (same URL would never trigger again), and
+  `fireIntervention` could show a stale popup if the user switched tabs while
+  the LLM was thinking. Both fixed with explicit guards.
+
 ### Where it is now
 
 PocraEnd installs with zero build tools on any modern Node, sets up its own AI,
 lets you pick the model that fits your machine, and classifies distractions at up
-to **100%** on the benchmark — from a buggy first commit to a polished,
-self-installing focus guardian, in thirteen commits.
+to **100%** on the benchmark — with a **three-category verdict system** so
+utilities and support tools no longer get roasted. From a buggy first commit to
+a polished, self-installing focus guardian.
 
 ---
 
@@ -524,4 +569,16 @@ open an issue first to discuss it. Run `node test-logic.js` and
 
 [MIT](LICENSE) © 2026
 
-<div align="center"><sub>Built to end procrastination — one caught drift at a time.</sub></div>
+---
+
+<div align="center">
+
+### ⭐ Liked PocraEnd?
+
+If this project helped you focus, **[give it a star](https://github.com/0xabhilok/PocraEnd/stargazers)** — it's the single biggest thing you can do to support a solo developer and help others discover it.
+
+[![Star on GitHub](https://img.shields.io/github/stars/0xabhilok/PocraEnd?style=for-the-badge&logo=github&label=Star%20on%20GitHub&color=7c5cff)](https://github.com/0xabhilok/PocraEnd/stargazers)
+
+<sub>Built to end procrastination — one caught drift at a time.</sub>
+
+</div>
