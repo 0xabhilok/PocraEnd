@@ -1,5 +1,13 @@
-// Hardcoded rules: known productive domains per work type.
-// If this returns true, skip the LLM call entirely.
+// Hardcoded rules: known productive / neutral / distraction domains and apps.
+// Verdicts:
+//   'allow'       → directly productive, skip LLM, no popup
+//   'neutral'     → support/utility activity, skip LLM, no popup, no drift logged
+//   'block'       → known distraction, fire popup (skip LLM)
+//   'unknown'     → let the LLM decide
+//
+// "Neutral" means: not clearly productive, not clearly distracting. Examples:
+// system utilities, file management, calculators, settings — things that
+// support work but aren't direct output, and shouldn't be roasted.
 
 // Always allowed regardless of work type: local dev servers and AI assistants.
 const ALWAYS_ALLOWED_DOMAINS = new Set([
@@ -61,8 +69,23 @@ const KNOWN_DISTRACTIONS = new Set([
   'twitch.tv'
 ]);
 
-// Desktop apps that are clearly work tools — never a distraction.
-// Matched case-insensitively as a substring of the OS-reported app name.
+// Neutral domains — support work or unclear intent. Never trigger a popup,
+// but also not counted as "productive". Email, calendar, news, generic search.
+const NEUTRAL_DOMAINS = new Set([
+  'mail.google.com',
+  'gmail.com',
+  'outlook.com',
+  'outlook.office.com',
+  'calendar.google.com',
+  'drive.google.com',
+  'dropbox.com',
+  'onedrive.live.com',
+  'google.com',                 // bare google.com search — intent unclear
+  'bing.com',
+  'duckduckgo.com'
+]);
+
+// Desktop apps that are clearly work tools — directly productive.
 const PRODUCTIVE_APPS = [
   'claude',
   'chatgpt',
@@ -80,24 +103,55 @@ const PRODUCTIVE_APPS = [
   'git bash',
   'postman',
   'github desktop',
-  'docker desktop',
-  // Windows system utilities — never distractions
+  'docker desktop'
+];
+
+// Desktop apps that are support / utility / system tools — neutral.
+// They help the user work but aren't direct output, so we don't roast them.
+const NEUTRAL_APPS = [
+  // System utilities
   'snippingtool',
   'snipping tool',
+  'screenshot',
   'task manager',
   'taskmgr',
   'system settings',
   'ms-settings',
+  'settings',
   'control panel',
   'registry editor',
   'regedit',
-  'file explorer',
-  'notepad',
-  'calculator',
-  'paint',
   'eventvwr',
   'perfmon',
-  'resmon'
+  'resmon',
+  // File management
+  'file explorer',
+  'finder',
+  // Quick utilities
+  'notepad',
+  'calculator',
+  'calc',
+  'paint',
+  'clipboard',
+  // PDF / document viewers
+  'adobe acrobat',
+  'acrobat reader',
+  'sumatra',
+  'preview',
+  // Communication (could be productive but generally neutral)
+  'slack',
+  'discord',
+  'microsoft teams',
+  'teams',
+  'zoom',
+  'whatsapp',
+  'telegram',
+  'outlook',
+  'thunderbird',
+  // Audio / background
+  'spotify',
+  'music',
+  'groove music'
 ];
 
 function extractDomain(url) {
@@ -109,7 +163,7 @@ function extractDomain(url) {
   }
 }
 
-// Returns: 'allow' | 'block' | 'unknown' (means: ask LLM)
+// Returns: 'allow' | 'neutral' | 'block' | 'unknown' (means: ask LLM)
 function checkRules({ url, workType }) {
   const domain = extractDomain(url);
   if (!domain) return 'unknown';
@@ -125,14 +179,18 @@ function checkRules({ url, workType }) {
   // or dev server can be on-topic, so the LLM judges them with context.
   if (KNOWN_DISTRACTIONS.has(domain)) return 'block';
 
+  // Email, calendar, generic search → neutral, no popup, no roast.
+  if (NEUTRAL_DOMAINS.has(domain)) return 'neutral';
+
   return 'unknown';
 }
 
-// Returns: 'allow' | 'unknown' for a desktop app ('unknown' means: ask the LLM).
+// Returns: 'allow' | 'neutral' | 'unknown' for a desktop app.
 function checkAppRules({ appName }) {
   if (!appName) return 'unknown';
   const name = appName.toLowerCase();
   if (PRODUCTIVE_APPS.some((a) => name.includes(a))) return 'allow';
+  if (NEUTRAL_APPS.some((a) => name.includes(a))) return 'neutral';
   return 'unknown';
 }
 

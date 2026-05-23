@@ -52,16 +52,17 @@ async function handleActivityChange(data) {
   // Rules layer for browser tabs (skip LLM if hardcoded)
   if (data.url) {
     const verdict = checkRules({ url: data.url, workType: sm.getState().workType });
-    if (verdict === 'allow') return;
+    if (verdict === 'allow' || verdict === 'neutral') return; // no popup either way
     if (verdict === 'block') {
       startDriftTimer({ ...data, classification: { verdict: 'DISTRACTION', confidence: 1, source: 'rules' } });
       return;
     }
   }
 
-  // Rules layer for desktop apps — known work tools skip the LLM entirely.
+  // Rules layer for desktop apps — known work tools and neutral utilities skip the LLM.
   if (!data.url && data.appName) {
-    if (checkAppRules({ appName: data.appName }) === 'allow') return;
+    const appVerdict = checkAppRules({ appName: data.appName });
+    if (appVerdict === 'allow' || appVerdict === 'neutral') return; // no popup either way
   }
 
   // LLM classification
@@ -82,6 +83,9 @@ async function handleActivityChange(data) {
     return;
   }
 
+  // Only DISTRACTION triggers a popup. RELEVANT and NEUTRAL are both silent —
+  // NEUTRAL is the "uncertain / support activity" bucket (file explorer,
+  // calculator, email, etc.) and should never roast the user.
   if (classification.verdict === 'DISTRACTION') {
     startDriftTimer({ ...data, classification });
   }

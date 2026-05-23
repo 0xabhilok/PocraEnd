@@ -65,8 +65,10 @@ async function classifyDistraction(context) {
     console.error('[llm-router] Local model failed:', err.message);
   }
 
-  // If local worked AND confidence is high enough, use it
-  if (localResult && localResult.confidence >= 0.7) {
+  // If local worked AND confidence is high enough, use it.
+  // NEUTRAL is the "uncertain" bucket by design, so accept it even with lower
+  // confidence — escalating to the cloud won't make it more certain.
+  if (localResult && (localResult.confidence >= 0.7 || localResult.verdict === 'NEUTRAL')) {
     return { ...localResult, source: 'local' };
   }
 
@@ -85,9 +87,10 @@ async function classifyDistraction(context) {
   // 3. Fall back to whatever local gave us.
   if (localResult) return { ...localResult, source: 'local' };
 
-  // No classifier available — do NOT intervene. Flagging everything as a
-  // distraction when Ollama is down would bury the user in popups.
-  return { verdict: 'RELEVANT', confidence: 0, reason: 'classifier unavailable', source: 'fallback' };
+  // No classifier available — fall back to NEUTRAL. We don't actually know
+  // what this is, and NEUTRAL is the "uncertain" bucket. Same effect as
+  // RELEVANT here (no popup), but semantically honest.
+  return { verdict: 'NEUTRAL', confidence: 0, reason: 'classifier unavailable', source: 'fallback' };
 }
 
 // --- Motivation message ---

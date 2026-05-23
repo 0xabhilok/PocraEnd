@@ -6,7 +6,7 @@ function classificationPrompt({ topic, workType, title, url, appName, windowTitl
     ? `Browser tab — Title: "${title}" — URL: ${url}`
     : `Desktop app — Name: "${appName}" — Window: "${windowTitle}"`;
 
-  return `You are a focus classifier. Decide if what the user just opened is RELEVANT to their work or a DISTRACTION.
+  return `You are a focus classifier. Decide if what the user just opened is RELEVANT, NEUTRAL, or a DISTRACTION relative to their stated work.
 
 User's stated work: "${topic}"
 Work type: ${workType}
@@ -14,15 +14,32 @@ Work type: ${workType}
 They just opened:
 ${targetDescription}
 
-Rules:
-- "RELEVANT" means it directly helps with the stated work.
-- "DISTRACTION" means it pulls them away from the stated work.
-- A YouTube tutorial on the work topic is RELEVANT. YouTube reels/music/gaming is DISTRACTION.
-- Documentation, Stack Overflow, GitHub for coding work is RELEVANT.
-- Social media (Instagram, Twitter, TikTok) is almost always DISTRACTION unless their work is literally about that platform.
+Categories:
+- "RELEVANT" → directly contributes to the stated work/study goal.
+  Examples: coding in VS Code, reading docs for the work topic, editing the project file, a YouTube tutorial ON the work topic.
+
+- "DISTRACTION" → clearly unrelated entertainment or social scrolling.
+  Examples: Instagram reels, TikTok, random YouTube entertainment, gaming, movie streaming, sports highlights, celebrity news.
+
+- "NEUTRAL" → support/utility activity, context-dependent, or unclear intent.
+  Not directly productive, but not entertainment either. Don't roast these.
+  Examples:
+    * System / utility: File Explorer, Settings, Calculator, Snipping Tool, Task Manager, PDF viewer, clipboard tools
+    * Communication: email, calendar, Slack, Discord, WhatsApp, Teams (could be work, could be chat — uncertain)
+    * Generic browsing with unclear intent: bare google.com search, news pages opened by accident, undefined documentation
+    * Short breaks: music player, downloads/builds finishing, brief app switching
+    * Idle / loading screens
+
+Tie-breakers:
+- If unsure between RELEVANT and DISTRACTION → choose NEUTRAL.
+- A YouTube tutorial on the work topic = RELEVANT. YouTube reels/music/entertainment = DISTRACTION. Background music while working = NEUTRAL.
+- Social media (Instagram, Twitter, TikTok) = DISTRACTION unless their work literally involves that platform.
+- Email/calendar/Slack = NEUTRAL by default (they might be working, might not).
 
 Respond ONLY in this JSON format, no other text:
 {"verdict":"RELEVANT","confidence":0.0,"reason":"short reason"}
+or
+{"verdict":"NEUTRAL","confidence":0.0,"reason":"short reason"}
 or
 {"verdict":"DISTRACTION","confidence":0.0,"reason":"short reason"}
 
