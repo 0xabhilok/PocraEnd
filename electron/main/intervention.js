@@ -108,6 +108,21 @@ async function handleActivityChange(data) {
     `reason="${classification.reason || ''}"`
   );
 
+  // Safety net for browser tabs: the rules layer already filtered out the
+  // genuinely-neutral browser domains (gmail, calendar, search engines via
+  // NEUTRAL_DOMAINS). Anything that survived to the LLM is either work or
+  // entertainment — never a "utility". A NEUTRAL verdict here means the small
+  // model dodged the call, not a real utility judgment. Reclassify as
+  // DISTRACTION so we err on the side of catching real drifts.
+  if (classification.verdict === 'NEUTRAL' && data.url) {
+    console.log('[intervention] browser-tab NEUTRAL → reclassified as DISTRACTION (rules layer already cleared real utilities)');
+    classification = {
+      ...classification,
+      verdict: 'DISTRACTION',
+      reason: `${classification.reason || 'neutral'} (reclassified: browser tabs cannot be utilities)`
+    };
+  }
+
   // Only DISTRACTION triggers a popup. RELEVANT and NEUTRAL are both silent —
   // NEUTRAL is the "support activity" bucket (file explorer, calculator,
   // email, etc.) and should never roast the user.
