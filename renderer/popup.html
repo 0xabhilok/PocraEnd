@@ -58,6 +58,22 @@
         flex-shrink: 0;
         -webkit-app-region: no-drag;
       }
+      /* Thin countdown bar pinned to the top — visually communicates that the
+         popup will auto-close. Shrinks left→right over the auto-close window. */
+      .countdown-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--accent);
+        transform-origin: left center;
+        animation: countdown linear forwards;
+      }
+      @keyframes countdown {
+        from { transform: scaleX(1); }
+        to   { transform: scaleX(0); }
+      }
       button {
         font-family: inherit;
         font-size: 14px;
@@ -83,6 +99,7 @@
     </style>
   </head>
   <body>
+    <div class="countdown-bar" id="countdownBar"></div>
     <div class="topic" id="topic">Working on —</div>
     <div class="distraction" id="distraction">You opened —</div>
     <div class="message" id="message">Loading…</div>
@@ -104,6 +121,16 @@
         if (data.snoozesLeft <= 0) {
           document.querySelectorAll('button')[1].disabled = true;
           document.querySelectorAll('button')[1].style.opacity = '0.4';
+        }
+        // Drive the countdown bar from the main-process auto-close duration so
+        // the visual matches the actual timer exactly.
+        const bar = document.getElementById('countdownBar');
+        if (data.autoCloseMs) {
+          // Restart the animation by removing + re-adding it (handles reuse of popup).
+          bar.style.animation = 'none';
+          // eslint-disable-next-line no-unused-expressions
+          bar.offsetHeight; // force reflow
+          bar.style.animation = `countdown ${data.autoCloseMs}ms linear forwards`;
         }
       });
 
