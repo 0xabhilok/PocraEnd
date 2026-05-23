@@ -80,7 +80,24 @@ const PRODUCTIVE_APPS = [
   'git bash',
   'postman',
   'github desktop',
-  'docker desktop'
+  'docker desktop',
+  // Windows system utilities — never distractions
+  'snippingtool',
+  'snipping tool',
+  'task manager',
+  'taskmgr',
+  'system settings',
+  'ms-settings',
+  'control panel',
+  'registry editor',
+  'regedit',
+  'file explorer',
+  'notepad',
+  'calculator',
+  'paint',
+  'eventvwr',
+  'perfmon',
+  'resmon'
 ];
 
 function extractDomain(url) {

@@ -51,6 +51,10 @@ function startWindowWatcher() {
         // Skip PocraEnd itself
         if (/pocraend|electron/i.test(appName)) return;
 
+        // Skip Windows shell & system UI — explorer.exe is the desktop/taskbar,
+        // not a real app switch. Also skip transient system overlays.
+        if (/^explorer$|windows explorer|program manager/i.test(appName)) return;
+
         await handleActivityChange({
           appName,
           windowTitle: win.title || '',
