@@ -33,6 +33,8 @@ async function handleActivityChange(data) {
       closeInterventionPopup();
     }
     sm.resetDrift();
+    // Reset the dedup key so the same URL can be re-classified if the user returns to it.
+    lastClassifiedKey = null;
   }
 
   // Dedupe: if the same target was just classified, ignore
@@ -142,6 +144,14 @@ async function fireIntervention(drift) {
   } catch (err) {
     message = "You drifted. Come back.";
   }
+
+  // Guard: if the session ended or the user moved away while we were awaiting the LLM,
+  // don't show a stale popup for something they're no longer on.
+  if (!sm.isActive()) return;
+  const liveDrift = sm.getState().currentDrift;
+  const liveKey = liveDrift.url || liveDrift.appName;
+  const driftKey = drift.url || drift.appName;
+  if (liveKey !== driftKey) return; // user already moved on
 
   // Show the popup
   showInterventionPopup({
