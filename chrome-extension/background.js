@@ -81,6 +81,68 @@ function send(payload) {
   ws.send(JSON.stringify(payload));
 }
 
+// --- Event coalescer ---
+// Chrome fires onActivated + onUpdated + onFocusChanged in quick succession
+// for a single user-perceived tab switch. Coalesce them so PocraEnd sees one
+// event per real switch instead of three.
+//
+// Also dedupes by normalized URL key (host + pathname) — modern players and
+// SPAs change the query string constantly during playback; that's not a
+// context change and shouldn't keep re-triggering classification.
+const COALESCE_MS = 250;
+let coalesceTimer = null;
+let coalescePending = null;
+let lastSentKey = null;
+
+function normalizeKey(url) {
+  try {
+    const u = new URL(url);
+    return `${u.hostname}${u.pathname}`;
+  } catch {
+    return url;
+  }
+}
+
+function queueSend(payload, debugSource) {
+  if (!payload || !payload.url) return;
+  if (payload.url.startsWith('chrome://') || payload.url.startsWith('chrome-extension://')) return;
+
+  coalescePending = { payload, debugSource };
+  if (coalesceTimer) clearTimeout(coalesceTimer);
+  coalesceTimer = setTimeout(flushCoalesced, COALESCE_MS);
+}
+
+function flushCoalesced() {
+  coalesceTimer = null;
+  if (!coalescePending) return;
+  const { payload, debugSource } = coalescePending;
+  coalescePending = null;
+
+  const key = normalizeKey(payload.url);
+  if (key === lastSentKey) {
+    // Same logical page — don't re-send. PocraEnd's own dedup would catch
+    // it but suppressing at the source keeps logs clean.
+    return;
+  }
+  lastSentKey = key;
+  console.log(`[PocraEnd ext] → tab event (${debugSource}):`, payload.url);
+  send(payload);
+}
+
+function forceFlushAndSend(payload, debugSource) {
+  // Used for keepalive / connect / explicit requests — same coalescing but
+  // bypasses the "same key" suppression so PocraEnd always re-sees the
+  // current tab on session start etc.
+  if (coalesceTimer) clearTimeout(coalesceTimer);
+  coalesceTimer = null;
+  coalescePending = null;
+  if (!payload || !payload.url) return;
+  if (payload.url.startsWith('chrome://') || payload.url.startsWith('chrome-extension://')) return;
+  lastSentKey = normalizeKey(payload.url);
+  console.log(`[PocraEnd ext] → tab event (${debugSource}, forced):`, payload.url);
+  send(payload);
+}
+
 // Query the currently-focused tab across all windows and report it as a
 // tab_switch so PocraEnd can classify it. Used on connect and on the
 // periodic heartbeat to recover from "user just sat there" gaps.
@@ -89,8 +151,15 @@ function reportCurrentActiveTab(source) {
     const tab = tabs && tabs[0];
     if (chrome.runtime.lastError || !tab || !tab.url) return;
     if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return;
-    console.log(`[PocraEnd ext] reporting current tab (${source}):`, tab.url);
-    send({ event: 'tab_switch', url: tab.url, title: tab.title, tabId: tab.id });
+    // Connect / explicit-request events bypass dedup so PocraEnd can pick
+    // up the user's current page even if it hasn't changed.
+    const force = source === 'connect' || source === 'requested';
+    const payload = { event: 'tab_switch', url: tab.url, title: tab.title, tabId: tab.id };
+    if (force) {
+      forceFlushAndSend(payload, source);
+    } else {
+      queueSend(payload, source);
+    }
   });
 }
 
@@ -100,20 +169,19 @@ connect();
 chrome.runtime.onStartup.addListener(connect);
 chrome.runtime.onInstalled.addListener(connect);
 
-// Tab events
+// Tab events — all routed through queueSend() which coalesces bursts of
+// onActivated + onUpdated + onFocusChanged that fire for one user switch.
 chrome.tabs.onActivated.addListener(({ tabId }) => {
   chrome.tabs.get(tabId, (tab) => {
     if (chrome.runtime.lastError || !tab) return;
-    if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return;
-    send({ event: 'tab_switch', url: tab.url, title: tab.title, tabId: tab.id });
+    queueSend({ event: 'tab_switch', url: tab.url, title: tab.title, tabId: tab.id }, 'onActivated');
   });
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!tab.active) return;
   if (!(changeInfo.url || changeInfo.title)) return;
-  if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return;
-  send({ event: 'tab_update', url: tab.url, title: tab.title, tabId: tab.id });
+  queueSend({ event: 'tab_update', url: tab.url, title: tab.title, tabId: tab.id }, 'onUpdated');
 });
 
 // Re-report the active tab when the user switches back into the browser.
@@ -122,9 +190,8 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) return; // focus left the browser
   chrome.tabs.query({ active: true, windowId }, (tabs) => {
     const tab = tabs && tabs[0];
-    if (chrome.runtime.lastError || !tab || !tab.url) return;
-    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return;
-    send({ event: 'tab_switch', url: tab.url, title: tab.title, tabId: tab.id });
+    if (chrome.runtime.lastError || !tab) return;
+    queueSend({ event: 'tab_switch', url: tab.url, title: tab.title, tabId: tab.id }, 'onFocusChanged');
   });
 });
 

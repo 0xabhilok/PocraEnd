@@ -1,15 +1,18 @@
+// Polls the foreground desktop window every 1.5s. Sends events to
+// intervention.handleActivityChange ONLY for non-browser apps — the Chrome
+// extension reports browser tabs with better fidelity than active-win can.
+
 const sm = require('./session-manager');
 const { handleActivityChange } = require('./intervention');
 
 const POLL_INTERVAL_MS = 1500;
-let lastWindowId = null;
+let lastKey = null; // app::windowTitle — changes when either changes
 let activeWinFn = null;
 let wasActive = false;
 
 async function loadActiveWin() {
   if (activeWinFn) return activeWinFn;
   try {
-    // active-win v8+ is ESM-only; use dynamic import.
     const mod = await import('active-win');
     activeWinFn = mod.activeWindow || mod.default;
     return activeWinFn;
@@ -23,47 +26,48 @@ function startWindowWatcher() {
   setInterval(async () => {
     if (!sm.isActive()) {
       wasActive = false;
+      lastKey = null;
       return;
     }
 
-    // Session just started — clear the cached window id so the window the
-    // user is already on gets evaluated instead of being skipped.
+    // Session just started — reset cache so the foreground gets re-evaluated.
     if (!wasActive) {
       wasActive = true;
-      lastWindowId = null;
+      lastKey = null;
     }
 
     const fn = await loadActiveWin();
     if (!fn) return;
 
+    let win;
     try {
-      const win = await fn();
-      if (!win) return;
-
-      if (win.id !== lastWindowId) {
-        lastWindowId = win.id;
-
-        // Skip browsers — the extension reports those with better fidelity
-        const appName = (win.owner && win.owner.name) || '';
-        const isBrowser = /chrome|edge|brave|firefox|opera|vivaldi/i.test(appName);
-        if (isBrowser) return;
-
-        // Skip PocraEnd itself
-        if (/pocraend|electron/i.test(appName)) return;
-
-        // Skip Windows shell & system UI — explorer.exe is the desktop/taskbar,
-        // not a real app switch. Also skip transient system overlays.
-        if (/^explorer$|windows explorer|program manager/i.test(appName)) return;
-
-        await handleActivityChange({
-          appName,
-          windowTitle: win.title || '',
-          source: 'desktop'
-        });
-      }
-    } catch (err) {
-      // active-win can throw on some windows (e.g. permission popups). Ignore.
+      win = await fn();
+    } catch {
+      // active-win can throw on UAC dialogs, permission popups etc. Ignore.
+      return;
     }
+    if (!win) return;
+
+    const appName = (win.owner && win.owner.name) || '';
+    const windowTitle = win.title || '';
+
+    // Skip categories that the extension or the user-facing rules handle better.
+    if (/chrome|edge|brave|firefox|opera|vivaldi/i.test(appName)) return;
+    if (/pocraend|electron/i.test(appName)) return;
+    if (/^explorer$|windows explorer|program manager/i.test(appName)) return;
+
+    // Use app name + window title as the cache key. This catches "same app,
+    // different document" — e.g. switching files inside VS Code or moving
+    // between Word documents triggers a re-classification.
+    const key = `${appName}::${windowTitle}`;
+    if (key === lastKey) return;
+    lastKey = key;
+
+    await handleActivityChange({
+      appName,
+      windowTitle,
+      source: 'desktop'
+    });
   }, POLL_INTERVAL_MS);
 
   console.log('[window-watcher] Started, polling every', POLL_INTERVAL_MS, 'ms');
