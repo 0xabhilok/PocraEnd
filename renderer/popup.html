@@ -24,6 +24,8 @@
         height: 100vh;
         padding: 24px;
         -webkit-app-region: drag;
+        display: flex;
+        flex-direction: column;
       }
       .topic {
         font-size: 12px;
@@ -31,6 +33,7 @@
         text-transform: uppercase;
         letter-spacing: 0.05em;
         margin-bottom: 4px;
+        flex-shrink: 0;
       }
       .distraction {
         font-size: 14px;
@@ -39,16 +42,20 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        flex-shrink: 0;
       }
       .message {
-        font-size: 18px;
-        line-height: 1.4;
-        margin-bottom: 20px;
+        font-size: 16px;
+        line-height: 1.5;
+        margin-bottom: 16px;
+        overflow-y: auto;
+        flex: 1;
       }
       .buttons {
         display: flex;
         flex-direction: column;
         gap: 8px;
+        flex-shrink: 0;
         -webkit-app-region: no-drag;
       }
       button {
