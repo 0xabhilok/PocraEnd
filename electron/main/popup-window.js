@@ -14,7 +14,7 @@ function showInterventionPopup({ topic, distraction, message, snoozesLeft }) {
 
   popup = new BrowserWindow({
     width: 480,
-    height: 340,
+    height: 420,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
