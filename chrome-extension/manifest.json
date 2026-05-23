@@ -12,5 +12,12 @@
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png"
+    },
+    "default_title": "PocraEnd Helper"
   }
 }
