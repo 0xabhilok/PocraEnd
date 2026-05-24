@@ -63,6 +63,10 @@ function registerIpcHandlers({ getMainWindow }) {
 
   // Popup action
   ipcMain.handle('popup:action', (_e, action) => {
+    // Mark user action FIRST so any racing auto-close timer doesn't
+    // misclassify this click as "ignored" and schedule a re-check.
+    const { markUserActionTaken } = require('./popup-window');
+    markUserActionTaken();
     intervention.handlePopupAction(action);
   });
 

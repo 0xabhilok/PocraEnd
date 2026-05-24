@@ -5,6 +5,26 @@ const OLLAMA_URL = 'http://localhost:11434/api/generate';
 const DEFAULT_MODEL = 'phi3.5';
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
+// Per-request timeouts. A hung classifier must NEVER hang the pipeline; the
+// user has already moved tabs by the time a 10s+ classification would matter.
+// On timeout we fall through to the next tier (Gemini) or to fallback NEUTRAL.
+//
+// intervention.js treats source='fallback' as silent — a timeout therefore
+// produces no popup, which is the correct behavior. Trust must survive a
+// flaky local model.
+const OLLAMA_TIMEOUT_MS = 8000;
+const GEMINI_TIMEOUT_MS = 6000;
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // --- Local model call ---
 async function callOllama(prompt, { json = true } = {}) {
   const settings = getSettings();
@@ -16,11 +36,15 @@ async function callOllama(prompt, { json = true } = {}) {
   };
   if (json) body.format = 'json';
 
-  const res = await fetch(OLLAMA_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+  const res = await fetchWithTimeout(
+    OLLAMA_URL,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    },
+    OLLAMA_TIMEOUT_MS
+  );
 
   if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
   const data = await res.json();
@@ -29,25 +53,33 @@ async function callOllama(prompt, { json = true } = {}) {
 
 // --- Cloud fallback ---
 async function callGemini(prompt, apiKey) {
-  const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
-    })
-  });
+  const res = await fetchWithTimeout(
+    `${GEMINI_URL}?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
+      })
+    },
+    GEMINI_TIMEOUT_MS
+  );
 
   if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
   const data = await res.json();
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
-// Small models sometimes return the verdict in the wrong case ("distraction").
-// Normalize it so downstream strict equality checks don't silently miss.
+// Small models sometimes return the verdict in lowercase or with non-number
+// confidence. Normalize so downstream gating works deterministically.
 function normalizeClassification(obj) {
   if (obj && typeof obj === 'object' && typeof obj.verdict === 'string') {
     obj.verdict = obj.verdict.trim().toUpperCase();
+    if (typeof obj.confidence !== 'number' || Number.isNaN(obj.confidence)) {
+      obj.confidence = 0;
+    }
+    obj.confidence = Math.max(0, Math.min(1, obj.confidence));
   }
   return obj;
 }
@@ -65,10 +97,7 @@ async function classifyDistraction(context) {
     console.error('[llm-router] Local model failed:', err.message);
   }
 
-  // If local worked AND confidence is high enough, use it.
-  // NEUTRAL only counts at high confidence — a low-confidence NEUTRAL is the
-  // small model dodging the question rather than a real "this is a utility"
-  // verdict. Escalate to cloud / re-evaluate instead.
+  // High-confidence local → use directly.
   if (localResult && localResult.confidence >= 0.7) {
     return { ...localResult, source: 'local' };
   }
@@ -88,10 +117,16 @@ async function classifyDistraction(context) {
   // 3. Fall back to whatever local gave us.
   if (localResult) return { ...localResult, source: 'local' };
 
-  // No classifier available — fall back to NEUTRAL. We don't actually know
-  // what this is, and NEUTRAL is the "uncertain" bucket. Same effect as
-  // RELEVANT here (no popup), but semantically honest.
-  return { verdict: 'NEUTRAL', confidence: 0, reason: 'classifier unavailable', source: 'fallback' };
+  // No classifier available — NEUTRAL with confidence 0. intervention.js MUST
+  // treat (source === 'fallback') as silent. No popup is fired from this path,
+  // which is the entire point of FIX 1: a hung/missing classifier never
+  // produces wrong popups.
+  return {
+    verdict: 'NEUTRAL',
+    confidence: 0,
+    reason: 'classifier unavailable',
+    source: 'fallback'
+  };
 }
 
 // --- Motivation message ---

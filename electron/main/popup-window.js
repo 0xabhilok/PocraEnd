@@ -9,8 +9,15 @@
 //                     │ close()           ┌──────────┐
 //                     └────────────────── │   OPEN   │
 //                                         └──────────┘
-//                                              │ show() → just update content
+//                                              │ show() → update content in place
 //                                              ▼ (no new window)
+//
+// Changes vs the original:
+//  - closeInterventionPopup() clears pendingShowData before closing so a
+//    close-during-CREATING does not replay a stale popup on 'closed'.
+//  - userActionTaken + markUserActionTaken() distinguish user-driven close
+//    from the auto-close timeout. The auto-close path calls onIgnoredCallback,
+//    user-driven closes do not.
 
 const { BrowserWindow, screen } = require('electron');
 const path = require('path');
@@ -20,8 +27,15 @@ const AUTO_CLOSE_MS = 5000;
 let popup = null;
 let popupState = 'NONE'; // NONE | CREATING | OPEN | CLOSING
 let autoCloseTimer = null;
-// Queued show payload if a request arrives while we're CREATING.
 let pendingShowData = null;
+
+// True when the IPC popup:action handler has run for the current popup
+// instance — gates onIgnoredCallback so a click doesn't also count as ignore.
+let userActionTaken = false;
+
+// Set by intervention.js. Fired only when a popup auto-closes (timeout)
+// without any user action.
+let onIgnoredCallback = null;
 
 function log(event, details = {}) {
   const ts = new Date().toISOString().slice(11, 23);
@@ -31,6 +45,13 @@ function log(event, details = {}) {
     .join(' ');
   console.log(`[popup] ${ts} state=${popupState} ${event}${detailStr ? ' ' + detailStr : ''}`);
 }
+
+function setOnIgnoredCallback(cb) { onIgnoredCallback = cb; }
+
+// Called from ipc-handlers before handlePopupAction runs — guarantees that
+// even if the auto-close timer fires in the same tick, we don't classify the
+// click as "ignored".
+function markUserActionTaken() { userActionTaken = true; }
 
 function clearAutoCloseTimer() {
   if (autoCloseTimer) {
@@ -43,7 +64,11 @@ function startAutoCloseTimer() {
   clearAutoCloseTimer();
   autoCloseTimer = setTimeout(() => {
     log('auto-close-fired');
+    const wasUserAction = userActionTaken;
     closeInterventionPopup();
+    if (!wasUserAction && typeof onIgnoredCallback === 'function') {
+      try { onIgnoredCallback(); } catch { /* swallow */ }
+    }
   }, AUTO_CLOSE_MS);
 }
 
@@ -54,13 +79,11 @@ function sendInitPayload(data) {
 
 function showInterventionPopup(data) {
   log('show-requested', { distraction: data.distraction });
+  userActionTaken = false; // fresh show — until proven otherwise
 
   if (popupState === 'CREATING') {
-    // A window is being created right now. Queue this payload — it will be
-    // applied as soon as did-finish-load fires.
     pendingShowData = data;
-    log('queued-during-create');
-    return;
+    return log('queued-during-create');
   }
 
   if (popupState === 'OPEN' && popup && !popup.isDestroyed()) {
@@ -68,15 +91,12 @@ function showInterventionPopup(data) {
     popup.showInactive();
     popup.moveTop();
     startAutoCloseTimer();
-    log('updated-existing-popup');
-    return;
+    return log('updated-existing-popup');
   }
 
   if (popupState === 'CLOSING') {
-    // Defer until close completes.
     pendingShowData = data;
-    log('queued-during-close');
-    return;
+    return log('queued-during-close');
   }
 
   // popupState === 'NONE' → create a new window.
@@ -104,7 +124,6 @@ function showInterventionPopup(data) {
   popup.setAlwaysOnTop(true, 'screen-saver');
   popup.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-  // Anchor top-center of the primary display work area.
   const { workArea } = screen.getPrimaryDisplay();
   const winBounds = popup.getBounds();
   popup.setBounds({
@@ -115,17 +134,13 @@ function showInterventionPopup(data) {
   });
 
   const isDev = process.env.NODE_ENV === 'development';
-  if (isDev) {
-    popup.loadURL('http://localhost:5173/popup.html');
-  } else {
-    popup.loadFile(path.join(__dirname, '../../renderer/dist/popup.html'));
-  }
+  if (isDev) popup.loadURL('http://localhost:5173/popup.html');
+  else popup.loadFile(path.join(__dirname, '../../renderer/dist/popup.html'));
 
   popup.webContents.once('did-finish-load', () => {
     if (!popup || popup.isDestroyed()) return;
     popupState = 'OPEN';
     log('popup-loaded');
-    // Apply whichever payload is latest (handles queued updates).
     if (pendingShowData) {
       sendInitPayload(pendingShowData);
       pendingShowData = null;
@@ -141,7 +156,9 @@ function showInterventionPopup(data) {
     pendingShowData = null;
     popupState = 'NONE';
 
-    // If a show was queued during CLOSING, honor it now.
+    // Only replay if a fresh show was explicitly queued (caller intent).
+    // Stale pendingShowData from before a context-driven close was already
+    // cleared by closeInterventionPopup, so we won't replay zombie popups.
     if (wasPending) {
       log('replaying-queued-show');
       showInterventionPopup(wasPending);
@@ -153,17 +170,27 @@ function closeInterventionPopup() {
   log('close-requested');
   clearAutoCloseTimer();
 
+  // FIX H3: drop any pendingShowData that belongs to a popup the caller has
+  // already decided to abandon. Without this, 'closed' would resurrect the
+  // popup with stale data after a context-change-driven close.
+  pendingShowData = null;
+
   if (popupState === 'NONE') return;
   if (popupState === 'CLOSING') return;
 
   popupState = 'CLOSING';
 
   if (popup && !popup.isDestroyed()) {
-    popup.close(); // triggers 'closed' which transitions back to NONE
+    popup.close();
   } else {
     popup = null;
     popupState = 'NONE';
   }
 }
 
-module.exports = { showInterventionPopup, closeInterventionPopup };
+module.exports = {
+  showInterventionPopup,
+  closeInterventionPopup,
+  setOnIgnoredCallback,
+  markUserActionTaken
+};

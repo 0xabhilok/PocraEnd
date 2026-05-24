@@ -53,7 +53,8 @@ function connect() {
       }
     } else if (msg.command === 'report_current_tab') {
       // PocraEnd asked for the current tab — usually because a focus session
-      // just started and the user is already sitting on something.
+      // just started, snooze just ended, or an ignored popup needs re-check.
+      // Force-send (bypass extension dedup) so PocraEnd always sees it.
       reportCurrentActiveTab('requested');
     }
   };
@@ -81,22 +82,36 @@ function send(payload) {
   ws.send(JSON.stringify(payload));
 }
 
+// --- URL filter ---
+// Skip browser-internal pages across Chromium variants and local files.
+// Earlier code only filtered chrome:// and chrome-extension:// — edge://,
+// brave://, about:, and file:// would leak through and trigger classification.
+function isInternalUrl(url) {
+  return /^(chrome|chrome-extension|edge|brave|about|file):/i.test(url || '');
+}
+
 // --- Event coalescer ---
 // Chrome fires onActivated + onUpdated + onFocusChanged in quick succession
 // for a single user-perceived tab switch. Coalesce them so PocraEnd sees one
 // event per real switch instead of three.
 //
-// Also dedupes by normalized URL key (host + pathname) — modern players and
-// SPAs change the query string constantly during playback; that's not a
-// context change and shouldn't keep re-triggering classification.
+// Also dedupes by normalized URL key (host + pathname). For media/SPA hosts
+// (YouTube, Netflix, Spotify, etc.) we include the title in the key so that
+// autoplay / playlist navigation — which keeps the URL pathname identical
+// while the actual content changes — still triggers re-classification.
 const COALESCE_MS = 250;
 let coalesceTimer = null;
 let coalescePending = null;
 let lastSentKey = null;
 
-function normalizeKey(url) {
+const MEDIA_HOST_RE = /(youtube\.com|netflix\.com|primevideo\.com|spotify\.com|hotstar\.com|disneyplus\.com)/i;
+
+function normalizeKey(url, title) {
   try {
     const u = new URL(url);
+    if (MEDIA_HOST_RE.test(u.hostname)) {
+      return `${u.hostname}${u.pathname}::${(title || '').slice(0, 80).toLowerCase()}`;
+    }
     return `${u.hostname}${u.pathname}`;
   } catch {
     return url;
@@ -105,7 +120,7 @@ function normalizeKey(url) {
 
 function queueSend(payload, debugSource) {
   if (!payload || !payload.url) return;
-  if (payload.url.startsWith('chrome://') || payload.url.startsWith('chrome-extension://')) return;
+  if (isInternalUrl(payload.url)) return;
 
   coalescePending = { payload, debugSource };
   if (coalesceTimer) clearTimeout(coalesceTimer);
@@ -118,7 +133,7 @@ function flushCoalesced() {
   const { payload, debugSource } = coalescePending;
   coalescePending = null;
 
-  const key = normalizeKey(payload.url);
+  const key = normalizeKey(payload.url, payload.title);
   if (key === lastSentKey) {
     // Same logical page — don't re-send. PocraEnd's own dedup would catch
     // it but suppressing at the source keeps logs clean.
@@ -132,13 +147,13 @@ function flushCoalesced() {
 function forceFlushAndSend(payload, debugSource) {
   // Used for keepalive / connect / explicit requests — same coalescing but
   // bypasses the "same key" suppression so PocraEnd always re-sees the
-  // current tab on session start etc.
+  // current tab on session start / snooze end / ignore re-check.
   if (coalesceTimer) clearTimeout(coalesceTimer);
   coalesceTimer = null;
   coalescePending = null;
   if (!payload || !payload.url) return;
-  if (payload.url.startsWith('chrome://') || payload.url.startsWith('chrome-extension://')) return;
-  lastSentKey = normalizeKey(payload.url);
+  if (isInternalUrl(payload.url)) return;
+  lastSentKey = normalizeKey(payload.url, payload.title);
   console.log(`[PocraEnd ext] → tab event (${debugSource}, forced):`, payload.url);
   send(payload);
 }
@@ -150,7 +165,7 @@ function reportCurrentActiveTab(source) {
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
     const tab = tabs && tabs[0];
     if (chrome.runtime.lastError || !tab || !tab.url) return;
-    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return;
+    if (isInternalUrl(tab.url)) return;
     // Connect / explicit-request events bypass dedup so PocraEnd can pick
     // up the user's current page even if it hasn't changed.
     const force = source === 'connect' || source === 'requested';

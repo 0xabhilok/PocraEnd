@@ -1,4 +1,10 @@
 // All prompts the LLM sees. Keep them here so you can tune them in one place.
+//
+// Bias note (changed): the previous version told the model "if uncertain →
+// DISTRACTION". That stacked badly with the post-classifier reclassify rule
+// and produced a ~triple-bias toward popups. The current version prefers
+// NEUTRAL on uncertainty — silence over a wrong popup, per user policy.
+// Real distractions still classify as DISTRACTION when the evidence is clear.
 
 function classificationPrompt({ topic, workType, title, url, appName, windowTitle }) {
   const isBrowser = !!url;
@@ -18,39 +24,40 @@ CATEGORIES — read carefully, the boundaries matter:
 
 "RELEVANT" → directly contributes to the stated work/study goal.
   Examples: coding in VS Code on the project, reading docs for the work topic,
-  a YouTube tutorial ON the work topic.
+  a YouTube tutorial whose title is clearly ON the work topic.
 
-"DISTRACTION" → entertainment, leisure, or anything clearly unrelated to work.
-  This is the DEFAULT for entertainment of any kind. Be DECISIVE here.
+"DISTRACTION" → clear entertainment, leisure, or unrelated content with strong
+  evidence. Only choose this when the title/URL gives obvious signals.
   Examples:
-    - Movies, TV shows, streaming (any movie title, any "Watch Online", any
-      streaming/video player page that isn't tutorial content)
-    - Social media reels and scrolling (Instagram, TikTok, Twitter/X, Snapchat)
-    - Gaming, sports highlights, celebrity news, gossip
-    - Random YouTube entertainment, music videos for leisure
-    - Anything with words like "Movie", "Full Movie", "Watch Online",
-      "Episode", "Season", "Trailer", "Highlights" in the title — unless
-      the user's stated work is film/video production
+    - Clear entertainment titles: "Full Movie", "Episode 5", "Trailer",
+      "Highlights", "Try Not To Laugh", celebrity/gossip headlines
+    - Social media feeds (Instagram, TikTok, Twitter/X home, Reddit r/funny)
+    - Gaming streams, sports recaps, leisure music videos
+    - Streaming services on a browse/watch page (Netflix, Prime, Hulu)
+    - Shopping carts, deal browsing
 
-"NEUTRAL" → ONLY for support/utility activities that are neither work nor
-  entertainment. Be STRICT — do not use NEUTRAL as an "I'm not sure" escape.
-  Examples (and basically ONLY these kinds):
+"NEUTRAL" → support/utility activity, OR anything you are not confident about.
+  PREFER NEUTRAL over a low-confidence DISTRACTION call. Silence is better
+  than a wrong popup.
+  Examples:
     - System utilities: File Explorer, Settings, Calculator, Snipping Tool,
-      Task Manager, PDF viewer, clipboard tools, screenshot tools
-    - Communication tools where intent is genuinely unclear: email, calendar,
-      Slack, Discord, WhatsApp, Teams
-    - Idle/loading screens, OS notifications
+      Task Manager, PDF viewer
+    - Email, calendar, messaging, productivity tools (Notion, Linear, Trello,
+      Asana, Jira, Figma, Miro)
+    - Generic search results pages
+    - Background music (Spotify, YouTube Music, SoundCloud)
+    - Ambiguous YouTube titles without obvious entertainment markers
+    - Anything where you would hesitate or guess
 
 DECISION RULES (apply in this order):
-1. Is it clearly entertainment, a movie, a video player, social scrolling, or
-   leisure? → DISTRACTION. Do NOT choose NEUTRAL for these.
-2. Is it a system utility or comms tool from the NEUTRAL examples above? → NEUTRAL.
-3. Does it directly help the stated work? → RELEVANT.
-4. Still genuinely uncertain between RELEVANT and DISTRACTION? → pick
-   DISTRACTION (better to interrupt than to miss a real drift). Do NOT
-   default to NEUTRAL just to avoid committing.
+1. Strong evidence of entertainment/leisure (per the examples above)? → DISTRACTION.
+2. Clear utility or support activity? → NEUTRAL.
+3. Directly contributes to the stated work? → RELEVANT.
+4. Genuinely uncertain between two categories? → NEUTRAL.
+   We prefer silence over a wrong popup.
 
-Set confidence honestly (0.0–1.0). High confidence (>= 0.7) for clear cases.
+Confidence reflects how sure you are. Use < 0.6 when guessing.
+Use >= 0.7 ONLY when the verdict is well-evidenced from the title or URL.
 
 Respond ONLY in this JSON format, no other text:
 {"verdict":"RELEVANT","confidence":0.0,"reason":"short reason"}
