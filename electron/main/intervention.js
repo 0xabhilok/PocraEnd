@@ -106,6 +106,10 @@ function normalizeKey(data) {
     try {
       const u = new URL(data.url);
       const host = u.hostname.replace(/^(www|m|mobile|mbasic|web)\./, '');
+      const verdict = checkRules({ url: data.url, workType: sm.getState().workType });
+      if (verdict === 'block' || verdict === 'soft-neutral') {
+        return `browser::${host}`;
+      }
       return `browser::${host}${u.pathname}`;
     } catch {
       return `browser::${data.url}`;

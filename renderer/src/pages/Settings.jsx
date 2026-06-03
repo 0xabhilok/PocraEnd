@@ -23,6 +23,10 @@ export default function Settings({ navigate }) {
   const saveGeminiKey = async () => {
     const key = geminiKey.trim();
     if (!key) return;
+    if (!/^AIzaSy[A-Za-z0-9_-]{33}$/.test(key)) {
+      alert("Invalid Gemini API key format. It should start with 'AIzaSy' and be 39 characters long.");
+      return;
+    }
     await save({ gemini_api_key: key });
     setGeminiKey('');
   };

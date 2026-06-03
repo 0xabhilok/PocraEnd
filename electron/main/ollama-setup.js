@@ -72,23 +72,33 @@ async function downloadFile(url, dest, onProgress) {
   const total = Number(res.headers.get('content-length')) || 0;
   let received = 0;
   const file = fs.createWriteStream(dest);
-  const reader = res.body.getReader();
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      received += value.length;
-      if (!file.write(Buffer.from(value))) {
-        await new Promise((resolve) => file.once('drain', resolve));
+
+  return new Promise((resolve, reject) => {
+    file.on('error', (err) => {
+      file.destroy();
+      reject(err);
+    });
+
+    const reader = res.body.getReader();
+
+    (async () => {
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          received += value.length;
+          if (!file.write(Buffer.from(value))) {
+            await new Promise((resDrain) => file.once('drain', resDrain));
+          }
+          if (total) onProgress(Math.round((received / total) * 100));
+        }
+        file.end(() => resolve(dest));
+      } catch (err) {
+        file.destroy();
+        reject(err);
       }
-      if (total) onProgress(Math.round((received / total) * 100));
-    }
-  } finally {
-    await new Promise((resolve, reject) =>
-      file.end((err) => (err ? reject(err) : resolve()))
-    );
-  }
-  return dest;
+    })();
+  });
 }
 
 async function waitForOllama(timeoutMs) {

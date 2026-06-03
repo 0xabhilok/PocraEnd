@@ -66,6 +66,9 @@ function initDb() {
       text TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE INDEX IF NOT EXISTS idx_drift_events_session_id ON drift_events(session_id);
+    CREATE INDEX IF NOT EXISTS idx_session_whitelist_session_id ON session_whitelist(session_id);
   `);
 
   // Migration: databases created before model selection lack the ai_model column.
@@ -89,7 +92,19 @@ function getDb() {
 
 // --- Settings ---
 function getSettings() {
-  return getDb().prepare('SELECT * FROM settings WHERE id = 1').get();
+  const row = getDb().prepare('SELECT * FROM settings WHERE id = 1').get();
+  if (row && row.gemini_api_key) {
+    const { safeStorage } = require('electron');
+    if (safeStorage.isEncryptionAvailable()) {
+      try {
+        const buffer = Buffer.from(row.gemini_api_key, 'base64');
+        row.gemini_api_key = safeStorage.decryptString(buffer);
+      } catch (e) {
+        // Fallback to raw value if decryption fails (e.g. legacy unencrypted storage)
+      }
+    }
+  }
+  return row;
 }
 
 function updateSettings(patch) {
@@ -99,7 +114,16 @@ function updateSettings(patch) {
   for (const [k, v] of Object.entries(patch)) {
     if (allowed.includes(k)) {
       updates.push(`${k} = ?`);
-      values.push(v);
+      if (k === 'gemini_api_key' && v) {
+        const { safeStorage } = require('electron');
+        if (safeStorage.isEncryptionAvailable()) {
+          values.push(safeStorage.encryptString(v).toString('base64'));
+        } else {
+          values.push(v);
+        }
+      } else {
+        values.push(v);
+      }
     }
   }
   if (updates.length === 0) return;
@@ -164,7 +188,7 @@ function getSessionWhitelist(sessionId) {
 
 // --- Stats / Dashboard ---
 function getDashboardData() {
-  const totalSessions = getDb().prepare('SELECT COUNT(*) as c FROM sessions WHERE completed = 1').get().c;
+  const totalSessions = getDb().prepare('SELECT COUNT(*) as c FROM sessions WHERE actual_duration_min > 0').get().c;
   const weekMinutes = getDb().prepare(`
     SELECT COALESCE(SUM(actual_duration_min), 0) as m
     FROM sessions

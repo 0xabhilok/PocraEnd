@@ -1,7 +1,7 @@
 const { classificationPrompt, motivationPrompt } = require('./prompts');
 const { getSettings, getMotivations } = require('./db');
 
-const OLLAMA_URL = 'http://localhost:11434/api/generate';
+const OLLAMA_URL = 'http://127.0.0.1:11434/api/generate';
 const DEFAULT_MODEL = 'phi3.5';
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 

@@ -23,7 +23,13 @@ function broadcastStatus() {
 function startWsServer() {
   wss = new WebSocketServer({ host: '127.0.0.1', port: PORT });
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
+    const origin = req.headers.origin || '';
+    if (!origin.startsWith('chrome-extension://')) {
+      ws.terminate();
+      console.log('[ws] Rejected connection from unauthorized origin:', origin);
+      return;
+    }
     clients.add(ws);
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });

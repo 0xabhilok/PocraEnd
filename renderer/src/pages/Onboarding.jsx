@@ -84,11 +84,15 @@ export default function Onboarding({ onDone }) {
               placeholder="AIza…"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              className="w-full bg-bg border border-border rounded-lg p-3 mb-6 text-text"
+              className="w-full bg-bg border border-border rounded-lg p-3 mb-4 text-text"
             />
+            {apiKey.trim() && !/^AIzaSy[A-Za-z0-9_-]{33}$/.test(apiKey.trim()) && (
+              <p className="text-xs text-red-500 mb-4">Invalid Gemini API key format (must start with 'AIzaSy' and be 39 characters).</p>
+            )}
             <button
               onClick={next}
-              className="w-full bg-accent text-white py-3 rounded-lg font-medium"
+              disabled={apiKey.trim() !== '' && !/^AIzaSy[A-Za-z0-9_-]{33}$/.test(apiKey.trim())}
+              className="w-full bg-accent text-white py-3 rounded-lg font-medium disabled:opacity-50"
             >
               Continue
             </button>

@@ -18,7 +18,8 @@ async function loadActiveWin() {
     return activeWinFn;
   } catch (err) {
     console.error('[window-watcher] Failed to load active-win:', err.message);
-    return null;
+    activeWinFn = async () => null; // Prevent repeated loading attempts and console spam
+    return activeWinFn;
   }
 }
 
