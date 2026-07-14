@@ -50,7 +50,11 @@
     "files": [
       "electron/**/*",
       "renderer/dist/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "chrome-extension/**/*"
+    ],
+    "asarUnpack": [
+      "chrome-extension/**/*"
     ],
     "win": {
       "target": "nsis",

@@ -1,9 +1,19 @@
-const { ipcMain } = require('electron');
+const { ipcMain, shell, app } = require('electron');
+const path = require('path');
 const db = require('./db');
 
 const sm = require('./session-manager');
 const intervention = require('./intervention');
 const ollamaSetup = require('./ollama-setup');
+
+// In dev the folder lives at the project root. In a packaged build it must be
+// unpacked from the asar (see build.asarUnpack in package.json) so Chrome's
+// "Load unpacked" folder picker and Explorer can actually browse into it.
+function getChromeExtensionFolder() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'app.asar.unpacked', 'chrome-extension')
+    : path.join(__dirname, '../../chrome-extension');
+}
 
 function registerIpcHandlers({ getMainWindow }) {
   intervention.setMainWindowGetter(getMainWindow);
@@ -79,6 +89,18 @@ function registerIpcHandlers({ getMainWindow }) {
   ipcMain.handle('extension:status', () => {
     const { getExtensionStatus } = require('./ws-server');
     return getExtensionStatus();
+  });
+
+  // Extension install guide
+  ipcMain.handle('extension:folder-path', () => getChromeExtensionFolder());
+
+  ipcMain.handle('extension:open-folder', async () => {
+    const err = await shell.openPath(getChromeExtensionFolder());
+    return { ok: !err, error: err || null };
+  });
+
+  ipcMain.handle('extension:open-extensions-page', async () => {
+    await shell.openExternal('chrome://extensions/');
   });
 
   // Custom motivations

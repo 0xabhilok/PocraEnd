@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Extension status
   getExtensionStatus: () => ipcRenderer.invoke('extension:status'),
 
+  // Extension install guide
+  getExtensionFolderPath: () => ipcRenderer.invoke('extension:folder-path'),
+  openExtensionFolder: () => ipcRenderer.invoke('extension:open-folder'),
+  openChromeExtensionsPage: () => ipcRenderer.invoke('extension:open-extensions-page'),
+
   // Custom motivations
   getMotivations: () => ipcRenderer.invoke('motivations:list'),
   addMotivation: (text) => ipcRenderer.invoke('motivations:add', text),
